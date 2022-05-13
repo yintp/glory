@@ -1,6 +1,5 @@
-package com.yintp.algorithm.leetcode.test;
+package com.yintp.algorithm.leetcode;
 
-import com.yintp.algorithm.leetcode.Q24SwapPairs;
 import com.yintp.algorithm.leetcode.structure.ListNode;
 import org.junit.After;
 import org.junit.Assert;
@@ -12,6 +11,7 @@ import org.junit.Test;
  */
 public class Q24SwapPairsTest {
     private ListNode case1Node;
+    private ListNode case2Node;
 
     @Before
     public void prepare() {
@@ -25,18 +25,36 @@ public class Q24SwapPairsTest {
         n3.next = n4;
         n4.next = n5;
         case1Node = n1;
+        case2Node = n5;
     }
 
     @After
     public void destroy() {
         case1Node = null;
+        case2Node = null;
     }
 
     @Test
-    public void case1() {
+    public void testCase1() {
         Q24SwapPairs q24SwapPairs = new Q24SwapPairs();
         ListNode listNode = q24SwapPairs.swapPairs(case1Node);
         int[] expect = {2, 1, 4, 3, 5};
+        Assert.assertArrayEquals(expect, listNode.toArray());
+    }
+
+    @Test
+    public void testCase1For2() {
+        Q24SwapPairs q24SwapPairs = new Q24SwapPairs();
+        ListNode listNode = q24SwapPairs.swapPairs2(case1Node);
+        int[] expect = {2, 1, 4, 3, 5};
+        Assert.assertArrayEquals(expect, listNode.toArray());
+    }
+
+    @Test
+    public void testCase2() {
+        Q24SwapPairs q24SwapPairs = new Q24SwapPairs();
+        ListNode listNode = q24SwapPairs.swapPairs(case2Node);
+        int[] expect = {5};
         Assert.assertArrayEquals(expect, listNode.toArray());
     }
 }

@@ -48,4 +48,18 @@ public class Q24SwapPairs {
         pre.next = null;
         return h.next;
     }
+
+    /**
+     * 思路：
+     * 递归，交换两个，用交换后的末尾连接递归方法
+     */
+    public ListNode swapPairs2(ListNode head) {
+        if (head == null || head.next == null) {
+            return head;
+        }
+        ListNode next = head.next;
+        head.next = swapPairs(head.next.next);
+        next.next = head;
+        return next;
+    }
 }
