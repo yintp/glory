@@ -59,6 +59,31 @@ public class Q25ReverseKGroup {
     }
 
     /**
+     * 思路：
+     */
+    public ListNode reverseKGroup2(ListNode head, int k) {
+        if (head == null) {
+            return head;
+        }
+        int i = k - 1;
+        ListNode newHead = head;
+        while (i > 0) {
+            head = head.next;
+            if (head == null) {
+                return newHead;
+            }
+            i--;
+        }
+        ListNode tmp = head;
+        head = head.next;
+        tmp.next = null;
+        ListNode reverseNewHead = reverse(newHead);
+        ListNode subHead = reverseKGroup2(head, k);
+        newHead.next = subHead;
+        return reverseNewHead;
+    }
+
+    /**
      * 翻转链表
      * 思路：
      * 遍历列表，使用头插法得到翻转链表

@@ -49,4 +49,12 @@ public class Q25ReverseKGroupTest {
         int[] expect = {3, 2, 1, 4, 5};
         Assert.assertArrayEquals(expect, listNode.toArray());
     }
+
+    @Test
+    public void testCase1For2() {
+        Q25ReverseKGroup q25ReverseKGroup = new Q25ReverseKGroup();
+        ListNode listNode = q25ReverseKGroup.reverseKGroup2(case1Node, 3);
+        int[] expect = {3, 2, 1, 4, 5};
+        Assert.assertArrayEquals(expect, listNode.toArray());
+    }
 }
