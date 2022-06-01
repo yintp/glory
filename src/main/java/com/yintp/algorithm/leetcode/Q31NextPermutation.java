@@ -28,27 +28,25 @@ package com.yintp.algorithm.leetcode;
  */
 public class Q31NextPermutation {
     /**
-     * 思路：逆序遍历比较，找不到则进行冒泡排序
+     * 思路：逆序遍历比较，剩余则进行冒泡排序
      */
     public void nextPermutation(int[] nums) {
-        boolean hasNext = false;
-        for (int i = nums.length - 1; i > 0; i--) {
+        int i = nums.length - 1;
+        for (; i > 0; i--) {
             if (nums[i] > nums[i - 1]) {
                 int tmp = nums[i];
                 nums[i] = nums[i - 1];
                 nums[i - 1] = tmp;
-                hasNext = true;
                 break;
             }
         }
-        if (!hasNext) {
-            for (int i = 0; i < nums.length - 1; i++) {
-                for (int j = 0; j < nums.length - 1 - i; j++) {
-                    if (nums[j] > nums[j + 1]) {
-                        int tmp = nums[j];
-                        nums[j] = nums[j + 1];
-                        nums[j + 1] = tmp;
-                    }
+        int imp = i;
+        for (; i < nums.length - 1; i++) {
+            for (int j = imp; j < nums.length - 1 - i + imp; j++) {
+                if (nums[j] > nums[j + 1]) {
+                    int tmp = nums[j];
+                    nums[j] = nums[j + 1];
+                    nums[j + 1] = tmp;
                 }
             }
         }
