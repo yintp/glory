@@ -33,4 +33,13 @@ public class Q31NextPermutationTest {
         int[] expect = {3, 1, 2};
         Assert.assertArrayEquals(expect, nums);
     }
+
+    @Test
+    public void testCase4() {
+        Q31NextPermutation q31NextPermutation = new Q31NextPermutation();
+        int[] nums = {1, 3, 2};
+        q31NextPermutation.nextPermutation(nums);
+        int[] expect = {2, 1, 3};
+        Assert.assertArrayEquals(expect, nums);
+    }
 }

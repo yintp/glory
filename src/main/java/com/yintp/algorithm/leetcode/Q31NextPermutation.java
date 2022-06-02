@@ -31,18 +31,30 @@ public class Q31NextPermutation {
      * 思路：逆序遍历比较，剩余则进行冒泡排序
      */
     public void nextPermutation(int[] nums) {
-        int i = nums.length - 1;
-        for (; i > 0; i--) {
-            if (nums[i] > nums[i - 1]) {
-                int tmp = nums[i];
-                nums[i] = nums[i - 1];
-                nums[i - 1] = tmp;
+        int sl = nums.length - 1;
+        while (sl > 0) {
+            if (nums[sl] > nums[sl - 1]) {
                 break;
             }
+            sl--;
         }
-        int imp = i;
-        for (; i < nums.length - 1; i++) {
-            for (int j = imp; j < nums.length - 1 - i + imp; j++) {
+        if (sl > 0) {
+            int sr = sl;
+            int srTmp = sr;
+            int minMaxTmp = nums[sl];
+            while (srTmp < nums.length) {
+                if (nums[srTmp] > nums[sl - 1] && nums[srTmp] < minMaxTmp) {
+                    minMaxTmp = nums[srTmp];
+                    sr = srTmp;
+                }
+                srTmp++;
+            }
+            int tmp = nums[sl - 1];
+            nums[sl - 1] = nums[sr];
+            nums[sr] = tmp;
+        }
+        for (int i = sl; i < nums.length - 1; i++) {
+            for (int j = sl; j < nums.length - 1 - i + sl; j++) {
                 if (nums[j] > nums[j + 1]) {
                     int tmp = nums[j];
                     nums[j] = nums[j + 1];
