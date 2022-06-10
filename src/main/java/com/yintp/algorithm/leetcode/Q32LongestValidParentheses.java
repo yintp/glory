@@ -25,46 +25,23 @@ import java.util.LinkedList;
  */
 public class Q32LongestValidParentheses {
     /**
-     * 思路：双指针遍历所有字符串判断是否有效
+     * 思路：遍历所有字符串判断是否有效
      */
     public int longestValidParentheses(String s) {
-        int l = 0, result = 0;
-        while (l <= s.length()) {
-            int r = l + 1;
-            while (r <= s.length()) {
-                String substring = s.substring(l, r);
-                boolean valid = isValidParentheses(substring);
-                if (valid && substring.length() > result) {
-                    result = substring.length();
-                }
-                r++;
-            }
-            l++;
-        }
-        return result;
-    }
-
-    private boolean isValidParentheses(String s) {
-        boolean result = true;
-        Deque<Character> stack = new LinkedList<>();
+        int result = 0;
+        Deque<Integer> stack = new LinkedList<>();
+        stack.push(-1);
         for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if ('(' == c) {
-                stack.push(c);
+            if (s.charAt(i) == '(') {
+                stack.push(i);
             } else {
-                if (stack.size() == 0) {
-                    result = false;
-                    break;
-                }
-                Character pop = stack.pop();
-                if (pop == null) {
-                    result = false;
-                    break;
+                stack.pop();
+                if (stack.isEmpty()) {
+                    stack.push(i);
+                } else {
+                    result = Math.max(result, i - stack.peek());
                 }
             }
-        }
-        if (stack.size() > 0) {
-            result = false;
         }
         return result;
     }
