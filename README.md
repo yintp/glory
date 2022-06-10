@@ -1,1 +1,1 @@
-# java-core
+个人学习java核心记录项目
