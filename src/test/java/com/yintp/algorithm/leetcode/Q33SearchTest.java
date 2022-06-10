@@ -30,4 +30,12 @@ public class Q33SearchTest {
         int search = q33Search.search(arr, 0);
         Assert.assertEquals(-1, search);
     }
+
+    @Test
+    public void testCase4() {
+        Q33Search q33Search = new Q33Search();
+        int[] arr = {3, 1};
+        int search = q33Search.search(arr, 1);
+        Assert.assertEquals(1, search);
+    }
 }
