@@ -30,7 +30,7 @@ public class Q34SearchRange {
         int[] result = {-1, -1};
         int l = 0, r = nums.length - 1;
         int point = -1;
-        while (l < r) {
+        while (l <= r) {
             int mid = (l + r) / 2;
             if (target == nums[mid]) {
                 point = mid;

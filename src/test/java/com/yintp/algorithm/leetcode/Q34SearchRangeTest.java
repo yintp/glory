@@ -33,4 +33,13 @@ public class Q34SearchRangeTest {
         int[] expect = {-1, -1};
         Assert.assertArrayEquals(expect, result);
     }
+
+    @Test
+    public void testCase4() {
+        Q34SearchRange q34SearchRange = new Q34SearchRange();
+        int[] s = {1};
+        int[] result = q34SearchRange.searchRange(s, 1);
+        int[] expect = {0, 0};
+        Assert.assertArrayEquals(expect, result);
+    }
 }
