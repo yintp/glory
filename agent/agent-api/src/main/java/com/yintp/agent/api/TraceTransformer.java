@@ -41,7 +41,7 @@ public class TraceTransformer implements ClassFileTransformer {
                     e.printStackTrace();
                 }
                 return cls.toBytecode();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 e.printStackTrace();
             }
         }

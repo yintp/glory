@@ -32,7 +32,7 @@
                         </manifest>
                         <manifestEntries>
                             <Premain-Class>com.yintp.agent.api.PreMainAgent</Premain-Class>
-                            <Agent-Class>com.yintp.agent.api.PreMainAgent</Agent-Class>
+                            <Agent-Class>com.yintp.agent.api.AgentMainAgent</Agent-Class>
                             <Can-Redefine-Classes>true</Can-Redefine-Classes>
                             <Can-Retransform-Classes>true</Can-Retransform-Classes>
                         </manifestEntries>
