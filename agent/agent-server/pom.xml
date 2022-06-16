@@ -10,7 +10,7 @@
         <version>1.0</version>
     </parent>
 
-    <artifactId>agent-use</artifactId>
+    <artifactId>agent-server</artifactId>
 
     <dependencies>
         <dependency>

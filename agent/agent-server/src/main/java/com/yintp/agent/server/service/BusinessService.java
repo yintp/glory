@@ -1,4 +1,4 @@
-package com.yintp.agent.use;
+package com.yintp.agent.server.service;
 
 /**
  * @author yintp
