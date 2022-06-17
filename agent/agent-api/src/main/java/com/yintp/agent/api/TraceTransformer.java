@@ -13,6 +13,7 @@ import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
 
 /**
+ * 打印耗时
  * 可以在类加载之前，重写字节码
  *
  * @author yintp

@@ -6,17 +6,9 @@
 
     <parent>
         <groupId>com.yintp</groupId>
-        <artifactId>java-core</artifactId>
+        <artifactId>spi</artifactId>
         <version>1.0</version>
     </parent>
 
-    <artifactId>spi</artifactId>
-    <packaging>pom</packaging>
-
-    <modules>
-        <module>spi-api</module>
-        <module>spi-impl-db</module>
-        <module>spi-impl-file</module>
-        <module>spi-server</module>
-    </modules>
+    <artifactId>spi-api</artifactId>
 </project>
