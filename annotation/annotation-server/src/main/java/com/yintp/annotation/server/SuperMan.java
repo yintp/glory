@@ -1,5 +1,7 @@
 package com.yintp.annotation.server;
 
+import com.yintp.annotation.processor.SayHello;
+
 /**
  * @author yintp
  */
@@ -9,5 +11,6 @@ package com.yintp.annotation.server;
 @Person(role = "boyfriend")
 @Person(role = "programmer")
 @Person(role = "Chinese")
+@SayHello
 public class SuperMan {
 }

@@ -11,4 +11,11 @@
     </parent>
 
     <artifactId>annotation-processor</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.squareup</groupId>
+            <artifactId>javapoet</artifactId>
+        </dependency>
+    </dependencies>
 </project>

@@ -14,9 +14,24 @@
 
     <dependencies>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <scope>test</scope>
+            <groupId>com.yintp</groupId>
+            <artifactId>annotation-processor</artifactId>
+            <version>1.0</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <showWarnings>true</showWarnings>
+                    <annotationProcessors>
+                        <annotationProcessor>com.yintp.annotation.processor.SayHelloProcessor</annotationProcessor>
+                    </annotationProcessors>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
