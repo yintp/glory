@@ -6,15 +6,17 @@
 
     <parent>
         <groupId>com.yintp</groupId>
-        <artifactId>java-core</artifactId>
+        <artifactId>annotation</artifactId>
         <version>1.0</version>
     </parent>
 
-    <artifactId>annotation</artifactId>
-    <packaging>pom</packaging>
+    <artifactId>annotation-server</artifactId>
 
-    <modules>
-        <module>annotation-processor</module>
-        <module>annotation-server</module>
-    </modules>
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>
