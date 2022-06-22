@@ -1,4 +1,4 @@
-package com.yintp.annotation;
+package com.yintp.annotation.server;
 
 /**
  * @author yintp

@@ -1,4 +1,4 @@
-package com.yintp.annotation;
+package com.yintp.annotation.server;
 
 import org.junit.Assert;
 import org.junit.Test;
