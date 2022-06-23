@@ -10,11 +10,11 @@
         <version>1.0</version>
     </parent>
 
-    <artifactId>annotation</artifactId>
+    <artifactId>apt</artifactId>
     <packaging>pom</packaging>
 
     <modules>
-        <module>annotation-processor</module>
-        <module>annotation-server</module>
+        <module>apt-api</module>
+        <module>apt-server</module>
     </modules>
 </project>
