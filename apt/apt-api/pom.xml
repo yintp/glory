@@ -10,7 +10,7 @@
         <version>1.0</version>
     </parent>
 
-    <artifactId>annotation-processor</artifactId>
+    <artifactId>apt-api</artifactId>
 
     <dependencies>
         <dependency>

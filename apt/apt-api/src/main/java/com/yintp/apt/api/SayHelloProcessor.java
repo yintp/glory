@@ -1,4 +1,4 @@
-package com.yintp.annotation.processor;
+package com.yintp.apt.api;
 
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;

@@ -1,4 +1,4 @@
-package com.yintp.annotation.processor;
+package com.yintp.apt.api;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

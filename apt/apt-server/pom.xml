@@ -10,12 +10,12 @@
         <version>1.0</version>
     </parent>
 
-    <artifactId>annotation-server</artifactId>
+    <artifactId>apt-server</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>com.yintp</groupId>
-            <artifactId>annotation-processor</artifactId>
+            <artifactId>apt-api</artifactId>
             <version>1.0</version>
         </dependency>
     </dependencies>
@@ -28,7 +28,7 @@
                 <configuration>
                     <showWarnings>true</showWarnings>
                     <annotationProcessors>
-                        <annotationProcessor>com.yintp.annotation.processor.SayHelloProcessor</annotationProcessor>
+                        <annotationProcessor>com.yintp.apt.api.SayHelloProcessor</annotationProcessor>
                     </annotationProcessors>
                 </configuration>
             </plugin>
