@@ -20,7 +20,7 @@ import java.util.Set;
  *
  * @author yintp
  */
-@SupportedAnnotationTypes({"com.yintp.annotation.processor.Builder"})
+@SupportedAnnotationTypes({"com.yintp.apt.api.SayHello"})
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
 public class SayHelloProcessor extends AbstractProcessor {
     @Override
