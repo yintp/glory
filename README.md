@@ -1,5 +1,7 @@
 个人学习java核心记录项目
 
+[![OSCS Status](https://www.oscs1024.com/platform/badge/yintp/java-core.svg?size=small)](https://www.oscs1024.com/project/yintp/java-core?ref=badge_small)
+
 - agent: java**探针**demo
 - spi: java**spi机制**demo
 - proxy: java**动态代理**demo
