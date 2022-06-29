@@ -8,7 +8,7 @@ import com.yintp.agent.server.service.BusinessService;
  *
  * @author yintp
  */
-public class BusinessMain {
+public class App {
     public static void main(String[] args) {
         BusinessService service = new BusinessService();
         while (true) {

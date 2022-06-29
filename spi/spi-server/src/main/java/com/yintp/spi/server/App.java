@@ -6,7 +6,7 @@ import com.yintp.spi.server.search.SearchServiceFactory;
 /**
  * @author yintp
  */
-public class Main {
+public class App {
     public static void main(String[] args) {
         SearchService searchService = SearchServiceFactory.newSearch();
         String result = searchService.search("hello,spi");
