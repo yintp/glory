@@ -6,10 +6,10 @@ import org.junit.Test;
 /**
  * @author yintp
  */
-public class Q35IsValidSudokuTest {
+public class Q36IsValidSudokuTest {
     @Test
     public void testCase1() {
-        Q35IsValidSudoku q35IsValidSudoku = new Q35IsValidSudoku();
+        Q36IsValidSudoku q36IsValidSudoku = new Q36IsValidSudoku();
         char[][] chars = {
             {'5', '3', '.', '.', '7', '.', '.', '.', '.'},
             {'6', '.', '.', '1', '9', '5', '.', '.', '.'},
@@ -21,13 +21,13 @@ public class Q35IsValidSudokuTest {
             {'.', '.', '.', '4', '1', '9', '.', '.', '5'},
             {'.', '.', '.', '.', '8', '.', '.', '7', '9'}
         };
-        boolean validSudoku = q35IsValidSudoku.isValidSudoku(chars);
+        boolean validSudoku = q36IsValidSudoku.isValidSudoku(chars);
         Assert.assertEquals(true, validSudoku);
     }
 
     @Test
     public void testCase2() {
-        Q35IsValidSudoku q35IsValidSudoku = new Q35IsValidSudoku();
+        Q36IsValidSudoku q36IsValidSudoku = new Q36IsValidSudoku();
         char[][] chars = {
             {'8', '3', '.', '.', '7', '.', '.', '.', '.'},
             {'6', '.', '.', '1', '9', '5', '.', '.', '.'},
@@ -39,7 +39,7 @@ public class Q35IsValidSudokuTest {
             {'.', '.', '.', '4', '1', '9', '.', '.', '5'},
             {'.', '.', '.', '.', '8', '.', '.', '7', '9'}
         };
-        boolean validSudoku = q35IsValidSudoku.isValidSudoku(chars);
+        boolean validSudoku = q36IsValidSudoku.isValidSudoku(chars);
         Assert.assertEquals(false, validSudoku);
     }
 }

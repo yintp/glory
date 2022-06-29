@@ -45,7 +45,10 @@ import java.util.Set;
  *
  * @author yintp
  */
-public class Q35IsValidSudoku {
+public class Q36IsValidSudoku {
+    /**
+     * 思路：依次判断行、列、3*3是否满足条件
+     */
     public boolean isValidSudoku(char[][] board) {
         for (int i = 0; i < 9; i++) {
             if (!rowIsValidSudoku(i, board)) {
