@@ -6,6 +6,6 @@ package com.yintp.design.pattern.factory.simple;
 public class HuaweiComputer implements Computer {
     @Override
     public void desc() {
-        System.out.println("HuaweiComputer");
+        System.out.println("Huawei Computer");
     }
 }

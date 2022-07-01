@@ -1,5 +1,8 @@
 package com.yintp.design.pattern.factory;
 
+import com.yintp.design.pattern.factory.devise.HuaweiCompanyFactory;
+import com.yintp.design.pattern.factory.devise.Phone;
+import com.yintp.design.pattern.factory.devise.XiaomiCompanyFactory;
 import com.yintp.design.pattern.factory.method.HuaweiComputerFactory;
 import com.yintp.design.pattern.factory.method.XiaomiComputerFactory;
 import com.yintp.design.pattern.factory.simple.Computer;
@@ -26,5 +29,19 @@ public class FactoryTest {
         XiaomiComputerFactory xiaomiComputerFactory = new XiaomiComputerFactory();
         Computer xiaomi = xiaomiComputerFactory.getComputer();
         xiaomi.desc();
+    }
+
+    @Test
+    public void testCase3() {
+        HuaweiCompanyFactory huaweiCompanyFactory = new HuaweiCompanyFactory();
+        Computer huaweiComputer = huaweiCompanyFactory.getComputer();
+        huaweiComputer.desc();
+        Phone huaweiPhone = huaweiCompanyFactory.getPhone();
+        huaweiPhone.desc();
+        XiaomiCompanyFactory xiaomiCompanyFactory = new XiaomiCompanyFactory();
+        Computer xiaomiComputer = xiaomiCompanyFactory.getComputer();
+        xiaomiComputer.desc();
+        Phone xiaomiPhone = xiaomiCompanyFactory.getPhone();
+        xiaomiPhone.desc();
     }
 }

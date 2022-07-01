@@ -6,6 +6,6 @@ package com.yintp.design.pattern.factory.simple;
 public class XiaomiComputer implements Computer {
     @Override
     public void desc() {
-        System.out.println("XiaomiComputer");
+        System.out.println("Xiaomi Computer");
     }
 }
