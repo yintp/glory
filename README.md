@@ -10,3 +10,5 @@
 - apt: java**apt**demo
 - annotation: java**注解**demo
 - reflect: java**反射机制**demo
+- rmi: java**远程方法调用**demo
+- service-provider-framework: **服务提供者框架**demo
