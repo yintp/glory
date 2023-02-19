@@ -1,0 +1,12 @@
+target/
+.mvn
+out
+logs
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
