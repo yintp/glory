@@ -12,3 +12,4 @@
 - reflect: java**反射机制**demo
 - rmi: java**远程方法调用**demo
 - service-provider-framework: **服务提供者框架**demo
+- jmx: java**管理拓展机制**demo

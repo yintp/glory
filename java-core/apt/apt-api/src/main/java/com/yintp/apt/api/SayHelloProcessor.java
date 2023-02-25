@@ -15,6 +15,10 @@ import java.io.Writer;
 import java.util.Set;
 
 /**
+ * 编译时注解处理器：APT可以用来在编译时扫描和处理注解。通过APT可以获取到注解和被注解对象的相关信息，在拿到这些信息后我们可以根据需求来自动的生成一些代码。
+ * 应该场景：
+ * - lombok
+ * - mapstruct
  * 注解处理器，对于每个标注了此注解的源文件，编译器都会调用process方法
  * 需指定当前处理器能够处理的注解以及源码级别，可通过注解@SupportedAnnotationTypes、@SupportedSourceVersion或重写getSupportedAnnotationTypes()、getSupportedSourceVersion()方法
  *
