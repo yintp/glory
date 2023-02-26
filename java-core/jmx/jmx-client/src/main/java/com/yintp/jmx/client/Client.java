@@ -34,10 +34,10 @@ public class Client {
         System.out.println("message=" + message);
         // invoke调用bean的方法，只针对非设置属性的方法，例如invoke不能对getName方法进行调用
         mbsc.invoke(mbeanName, "sayHello", null, null);
-        mbsc.invoke(mbeanName, "sayHaha", new String[]{"I'll connect to JMX Server"}, new String[]{"java.lang.String"});
+        mbsc.invoke(mbeanName, "sayHaha", new String[]{"haha"}, new String[]{"java.lang.String"});
 
         HelloMBean proxy = MBeanServerInvocationHandler.newProxyInstance(mbsc, mbeanName, HelloMBean.class, false);
         proxy.sayHello();
-        proxy.sayHaha("I'll connect to JMX Server");
+        proxy.sayHaha("haha");
     }
 }
