@@ -25,6 +25,21 @@
                 <artifactId>javapoet</artifactId>
                 <version>1.13.0</version>
             </dependency>
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm</artifactId>
+                <version>7.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-commons</artifactId>
+                <version>7.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.olivergondza</groupId>
+                <artifactId>maven-jdk-tools-wrapper</artifactId>
+                <version>0.1</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
     <dependencies>
