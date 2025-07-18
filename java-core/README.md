@@ -1,4 +1,4 @@
-个人学习java核心记录项目
+个人学习java核心技术记录项目
 
 [![OSCS Status](https://www.oscs1024.com/platform/badge/yintp/java-core.svg?size=small)](https://www.oscs1024.com/project/yintp/java-core?ref=badge_small)
 
@@ -13,3 +13,6 @@
 - rmi: java**远程方法调用**demo
 - service-provider-framework: **服务提供者框架**demo
 - jmx: java**管理拓展机制**demo
+- forkjoin: java**forkjoin并行计算框架**demo
+- jndi: java**命名和目录**demo
+- jvm: java**虚拟机**demo

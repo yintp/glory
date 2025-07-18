@@ -3,5 +3,6 @@
 - mysql
 - redis
 - kafka
+- rocketmq
 - es
 - mongodb
