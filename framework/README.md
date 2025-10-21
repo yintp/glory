@@ -4,4 +4,5 @@
 - mybatis
 - sharding
 - netty
+- dubbo
 - websocket
