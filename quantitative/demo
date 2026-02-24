@@ -1,0 +1,305 @@
+# -*- coding: utf-8 -*-
+"""
+多因子ETF轮动策略回测
+作者：Qwen
+策略规则：
+  买入（全部满足）：
+    1. 周MA20 > 月MA12
+    2. 日MA20 上穿 周MA20
+    3. MACD金叉 + 红柱放大 + DIF>0
+    4. 成交量 > 20日均量
+  卖出（全部满足）：
+    1. 周MA20 < 月MA12
+    2. 日MA20 下穿 周MA20
+    3. MACD死叉 + 绿柱放大 + DIF<0
+    4. 成交量 > 20日均量
+"""
+
+import akshare as ak
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from ta.trend import macd, macd_signal, macd_diff
+import warnings
+warnings.filterwarnings('ignore')
+
+# ========== 参数配置 ==========
+ETF_LIST = [
+    "515790"
+]
+ETF_NAMES = {
+    "515790": "光伏ETF"
+}
+START_DATE = "20180101"
+END_DATE = "20260131"
+INITIAL_CAPITAL = 1_000_000  # 100万元
+COMMISSION = 0.0003  # 0.03%
+
+# ========== 数据获取与预处理 ==========
+def get_etf_data(symbol):
+    try:
+        df = ak.fund_etf_hist_sina(symbol=f"sz{symbol}" if symbol[0] in ['0','1'] else f"sh{symbol}")
+    except:
+        try:
+            df = ak.fund_etf_hist_sina(symbol=f"sh{symbol}")
+        except:
+            print(f"❌ 无法获取 {symbol} 数据")
+            return None
+    df['date'] = pd.to_datetime(df['date'])
+    df = df[(df['date'] >= START_DATE) & (df['date'] <= END_DATE)].copy()
+    df.sort_values('date', inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    return df[['date', 'open', 'high', 'low', 'close', 'volume']]
+
+# ========== 计算指标 ==========
+def calculate_indicators(df):
+    # 日线指标
+    df['ma20'] = df['close'].rolling(20).mean()
+    df['vol_ma20'] = df['volume'].rolling(20).mean()
+
+    # MACD (12,26,9)
+    df['macd'] = macd(df['close'])
+    df['macd_signal'] = macd_signal(df['close'])
+    df['macd_hist'] = df['macd'] - df['macd_signal']
+
+    # 周线 & 月线数据（通过重采样）
+    weekly = df.set_index('date').resample('W-FRI').last()
+    monthly = df.set_index('date').resample('ME').last()
+
+    weekly['w_ma20'] = weekly['close'].rolling(20).mean()
+    monthly['m_ma12'] = monthly['close'].rolling(12).mean()
+
+    # 映射回日线
+    df.set_index('date', inplace=True)
+    df['w_ma20'] = np.nan
+    df['m_ma12'] = np.nan
+
+    for idx in weekly.index:
+        if idx in df.index:
+            df.at[idx, 'w_ma20'] = weekly.at[idx, 'w_ma20']
+    for idx in monthly.index:
+        if idx in df.index:
+            df.at[idx, 'm_ma12'] = monthly.at[idx, 'm_ma12']
+
+    df.ffill(inplace=True)
+    df.reset_index(inplace=True)
+
+    return df
+
+# ========== 生成信号 ==========
+def generate_signals(df):
+    df = df.copy()
+    df['buy_signal'] = False
+    df['sell_signal'] = False
+
+    for i in range(2, len(df)):
+        # 买入条件
+        buy_cond1 = df['w_ma20'].iloc[i] > df['m_ma12'].iloc[i]
+        buy_cond2 = (df['ma20'].iloc[i] > df['w_ma20'].iloc[i]) and (df['ma20'].iloc[i-1] <= df['w_ma20'].iloc[i-1])
+        buy_cond3 = (
+                (df['macd'].iloc[i] > df['macd_signal'].iloc[i]) and
+                (df['macd'].iloc[i-1] <= df['macd_signal'].iloc[i-1]) and
+                (df['macd_hist'].iloc[i] > df['macd_hist'].iloc[i-1]) and
+                (df['macd'].iloc[i] > 0)
+        )
+        buy_cond4 = df['volume'].iloc[i] > df['vol_ma20'].iloc[i]
+
+        # 卖出条件
+        sell_cond1 = df['w_ma20'].iloc[i] < df['m_ma12'].iloc[i]
+        sell_cond2 = (df['ma20'].iloc[i] < df['w_ma20'].iloc[i]) and (df['ma20'].iloc[i-1] >= df['w_ma20'].iloc[i-1])
+        sell_cond3 = (
+                (df['macd'].iloc[i] < df['macd_signal'].iloc[i]) and
+                (df['macd'].iloc[i-1] >= df['macd_signal'].iloc[i-1]) and
+                (df['macd_hist'].iloc[i] < df['macd_hist'].iloc[i-1]) and
+                (df['macd'].iloc[i] < 0)
+        )
+        sell_cond4 = df['volume'].iloc[i] > df['vol_ma20'].iloc[i]
+
+        df.loc[i, 'buy_signal'] = buy_cond1 and buy_cond2 and buy_cond3 and buy_cond4
+        df.loc[i, 'sell_signal'] = sell_cond1 and sell_cond2 and sell_cond3 and sell_cond4
+
+    return df
+
+# ========== 主回测引擎 ==========
+def backtest():
+    all_data = {}
+    signals = {}
+
+    # 获取并处理每只ETF数据
+    for symbol in ETF_LIST:
+        print(f"正在处理 {symbol} - {ETF_NAMES[symbol]}")
+        df = get_etf_data(symbol)
+        print(f"数据获取完成，数据长度为 {len(df)}")
+        if df is None or len(df) < 100:
+            continue
+        df = calculate_indicators(df)
+        df = generate_signals(df)
+        all_data[symbol] = df
+        signals[symbol] = df[['date', 'buy_signal', 'sell_signal']].copy()
+
+    print(f"数据处理完成{all_data}")
+
+    # 组合回测
+    dates = pd.date_range(start=START_DATE, end=END_DATE, freq='D')
+    portfolio = pd.DataFrame(index=dates, columns=['equity', 'holdings', 'cash'])
+    portfolio['equity'] = INITIAL_CAPITAL
+    portfolio['cash'] = INITIAL_CAPITAL
+    portfolio['holdings'] = 0
+
+    current_holdings = {}  # {symbol: shares}
+    trade_log = []
+
+    for date in dates:
+        if date not in portfolio.index:
+            continue
+
+        # 检查当日是否有ETF发出信号
+        buy_list = []
+        sell_list = []
+
+        for symbol in all_data:
+            df = all_data[symbol]
+            if date in df['date'].values:
+                row = df[df['date'] == date].iloc[0]
+                if row['buy_signal']:
+                    buy_list.append(symbol)
+                if row['sell_signal'] and symbol in current_holdings:
+                    sell_list.append(symbol)
+
+        # 先处理卖出
+        for symbol in sell_list:
+            df = all_data[symbol]
+            price = df[df['date'] == date]['close'].values[0]
+            shares = current_holdings[symbol]
+            amount = shares * price * (1 - COMMISSION)
+            portfolio.loc[date, 'cash'] += amount
+            del current_holdings[symbol]
+            trade_log.append({
+                'date': date, 'symbol': symbol, 'action': 'SELL',
+                'price': price, 'shares': shares, 'amount': amount
+            })
+
+        # 再处理买入（用当前现金等分）
+        if buy_list:
+            available_cash = portfolio.loc[date, 'cash']
+            per_cash = available_cash / len(buy_list)
+            for symbol in buy_list:
+                df = all_data[symbol]
+                price = df[df['date'] == date]['close'].values[0]
+                shares = int((per_cash * (1 - COMMISSION)) // (price * 100)) * 100  # 以100份为单位
+                if shares > 0:
+                    cost = shares * price * (1 + COMMISSION)
+                    portfolio.loc[date, 'cash'] -= cost
+                    current_holdings[symbol] = shares
+                    trade_log.append({
+                        'date': date, 'symbol': symbol, 'action': 'BUY',
+                        'price': price, 'shares': shares, 'amount': cost
+                    })
+
+        # 计算当日持仓市值
+        holding_value = 0
+        for symbol, shares in current_holdings.items():
+            df = all_data[symbol]
+            if date in df['date'].values:
+                price = df[df['date'] == date]['close'].values[0]
+                holding_value += shares * price
+        portfolio.loc[date, 'holdings'] = holding_value
+        portfolio.loc[date, 'equity'] = portfolio.loc[date, 'cash'] + holding_value
+
+    # 前向填充 equity（非交易日）
+    portfolio['equity'].ffill(inplace=True)
+    portfolio.dropna(inplace=True)
+
+    return portfolio, trade_log, all_data
+
+# ========== 绩效计算 ==========
+def calculate_performance(portfolio, trade_log):
+    returns = portfolio['equity'].pct_change().dropna()
+    total_return = (portfolio['equity'].iloc[-1] / INITIAL_CAPITAL) - 1
+    annualized_return = (1 + total_return) ** (252 / len(portfolio)) - 1
+
+    # 最大回撤
+    cum_max = portfolio['equity'].cummax()
+    drawdown = (portfolio['equity'] - cum_max) / cum_max
+    max_drawdown = drawdown.min()
+
+    # 胜率
+    profits = []
+    for i in range(1, len(trade_log), 2):
+        if trade_log[i]['action'] == 'SELL' and trade_log[i-1]['action'] == 'BUY':
+            buy_amount = trade_log[i-1]['amount']
+            sell_amount = trade_log[i]['amount']
+            profit = sell_amount - buy_amount
+            profits.append(profit)
+    win_rate = np.mean(np.array(profits) > 0) if profits else 0
+
+    # 资金利用率
+    holding_days = (portfolio['holdings'] > 0).sum()
+    total_days = len(portfolio)
+    capital_utilization = holding_days / total_days
+
+    return {
+        '总收益率': f"{total_return:.2%}",
+        '年化收益率': f"{annualized_return:.2%}",
+        '最大回撤': f"{max_drawdown:.2%}",
+        '胜率': f"{win_rate:.1%}",
+        '资金利用率': f"{capital_utilization:.1%}",
+        '期末净值': f"¥{portfolio['equity'].iloc[-1]:,.0f}"
+    }
+
+# ========== 绘图（以512400为例）==========
+def plot_signals(etf_data, symbol):
+    df = etf_data[symbol].copy()
+    df.set_index('date', inplace=True)
+
+    plt.figure(figsize=(14, 7))
+    plt.plot(df.index, df['close'], label='收盘价', color='black', linewidth=1)
+    plt.plot(df.index, df['ma20'], label='日MA20', color='orange')
+    plt.plot(df.index, df['w_ma20'], label='周MA20', color='blue')
+    plt.plot(df.index, df['m_ma12'], label='月MA12', color='purple')
+
+    # 标记买卖点
+    buy_points = df[df['buy_signal']]
+    sell_points = df[df['sell_signal']]
+    plt.scatter(buy_points.index, buy_points['close'], marker='^', color='red', s=100, label='买入')
+    plt.scatter(sell_points.index, sell_points['close'], marker='v', color='green', s=100, label='卖出')
+
+    plt.title(f"{symbol} - {ETF_NAMES[symbol]} 买卖信号")
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.gca().xaxis.set_major_locator(mdates.YearLocator())
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    plt.tight_layout()
+    plt.savefig(f"{symbol}_signals.png", dpi=150)
+    plt.show()
+
+# ========== 主程序 ==========
+if __name__ == "__main__":
+    print("🚀 开始回测...")
+    portfolio, trade_log, etf_data = backtest()
+    perf = calculate_performance(portfolio, trade_log)
+
+    print("\n📊 策略绩效:")
+    for k, v in perf.items():
+        print(f"  {k}: {v}")
+
+    print(f"\n📈 总交易次数: {len(trade_log)}")
+
+    # 绘制净值曲线
+    plt.figure(figsize=(12, 6))
+    plt.plot(portfolio.index, portfolio['equity'], label='策略净值', color='blue')
+    plt.title('策略净值曲线 (2018–2026)')
+    plt.ylabel('净值 (元)')
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("strategy_equity_curve.png", dpi=150)
+    plt.show()
+
+    # 绘制前3只ETF的信号图
+    for symbol in ETF_LIST[:1]:
+        if symbol in etf_data:
+            plot_signals(etf_data, symbol)
+
+    print("\n✅ 回测完成！信号图已保存为 PNG 文件。")
