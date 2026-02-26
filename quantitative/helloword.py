@@ -5,14 +5,10 @@
 策略规则：
   买入（全部满足）：
     1. 周MA20 > 月MA12
-    2. 日MA20 上穿 周MA20
-    3. MACD金叉 + 红柱放大 + DIF>0
-    4. 成交量 > 20日均量
+    2. 成交量 > 20日均量
   卖出（全部满足）：
     1. 周MA20 < 月MA12
-    2. 日MA20 下穿 周MA20
-    3. MACD死叉 + 绿柱放大 + DIF<0
-    4. 成交量 > 20日均量
+    2. 成交量 > 20日均量
 """
 
 import akshare as ak
@@ -32,19 +28,21 @@ ETF_NAMES = {
     "515790": "光伏ETF"
 }
 START_DATE = "20180101"
-END_DATE = "20260204"
+END_DATE = "20260225"
 INITIAL_CAPITAL = 1_000_000  # 100万元
 COMMISSION = 0.0003  # 0.03%
 
+
 # ========== 数据获取与预处理 ==========
 def get_etf_data(symbol, debug):
+    print(f"开始【{symbol}】数据获取与预处理...")
     try:
         df = ak.fund_etf_hist_sina(symbol=f"sz{symbol}" if symbol[0] in ['0','1'] else f"sh{symbol}")
     except:
         try:
             df = ak.fund_etf_hist_sina(symbol=f"sh{symbol}")
         except:
-            print(f"❌ 无法获取 {symbol} 数据")
+            print(f"❌ 无法获取 【{symbol}】 数据")
             return None
     df['date'] = pd.to_datetime(df['date'])
     df = df[(df['date'] >= START_DATE) & (df['date'] <= END_DATE)].copy()
@@ -56,16 +54,18 @@ def get_etf_data(symbol, debug):
 
     return df[['date', 'close', 'volume']]
 
+
 # ========== 计算指标 ==========
-def calculate_indicators(df, debug):
+def calculate_indicators(df, symbol, debug):
+    print(f"开始【{symbol}】计算指标...")
     # 周线 & 月线数据（通过重采样）
     weekly = df.set_index('date').resample('W-FRI').last()
     monthly = df.set_index('date').resample('ME').last()
 
     if debug:
-        print(f"√ 日线基本数据准备完成\n{df.tail(20)}")
-        print(f"√ 周线线基本数据准备完成\n{weekly.tail(20)}")
-        print(f"√ 月线线基本数据准备完成\n{monthly.tail(12)}")
+        print(f"√ 【{symbol}】日线基本数据准备完成\n{df.tail(20)}")
+        print(f"√ 【{symbol}】周线基本数据准备完成\n{weekly.tail(20)}")
+        print(f"√ 【{symbol}】月线基本数据准备完成\n{monthly.tail(12)}")
 
     # 日线指标
     df['ma20'] = df['close'].rolling(20).mean()
@@ -77,15 +77,15 @@ def calculate_indicators(df, debug):
     df['macd_hist'] = df['macd'] - df['macd_signal']
 
     if debug:
-        print(f"√ 计算日线指标完成\n{df.tail(20)}")
+        print(f"√ 【{symbol}】计算日线指标完成\n{df.tail(20)}")
 
     # 周线 & 月线指标
     weekly['w_ma20'] = weekly['close'].rolling(20).mean()
     monthly['m_ma12'] = monthly['close'].rolling(12).mean()
 
     if debug:
-        print(f"√ 计算周线指标完成\n{weekly.tail(20)}")
-        print(f"√ 计算月线指标完成\n{monthly.tail(12)}")
+        print(f"√ 【{symbol}】计算周线指标完成\n{weekly.tail(20)}")
+        print(f"√ 【{symbol}】计算月线指标完成\n{monthly.tail(12)}")
 
     # 映射回日线
     df.set_index('date', inplace=True)
@@ -104,92 +104,177 @@ def calculate_indicators(df, debug):
     df.reset_index(inplace=True)
 
     if debug:
-        print(f"√ 日线映射整合周、月线，填补缺失指标完成\n{df.tail(20)}")
+        print(f"√ 【{symbol}】日线映射整合周、月线，填补缺失指标完成\n{df.tail(20)}")
 
     return df
 
-# ========== 生成信号 ==========
-def generate_signals(df, debug):
-    df['buy_sell'] = np.nan
-    df['ma_cross'] = np.nan
-    df['macd_cross'] = np.nan
-    df['buy_sell_point_single'] = np.nan
 
+# ========== 生成基础信号 ==========
+def generate_basic_signals(df, symbol, debug):
+    print(f"开始【{symbol}】生成基础信号...")
     for i in range(2, len(df)):
-        # 买入条件
-        buy_cond1 = df['w_ma20'].iloc[i] > df['m_ma12'].iloc[i]
-        buy_cond2 = (df['ma20'].iloc[i] > df['w_ma20'].iloc[i])
-        buy_cond3 = (df['macd'].iloc[i] > df['macd_signal'].iloc[i]) and (df['macd_hist'].iloc[i] > df['macd_hist'].iloc[i-1]) and (df['macd'].iloc[i] > 0)
-        buy_cond4 = df['volume'].iloc[i] > df['vol_ma20'].iloc[i]
-
-        if debug and i >= len(df) - 1:
-            print(f"buy_cond1: {buy_cond1}={df['w_ma20'].iloc[i]}>{df['m_ma12'].iloc[i]}")
-            print(f"buy_cond2: {buy_cond2}={df['ma20'].iloc[i]}>{df['w_ma20'].iloc[i]}")
-            print(f"buy_cond3: {buy_cond3}=({df['macd'].iloc[i]} > {df['macd_signal'].iloc[i]}) and ({df['macd_hist'].iloc[i]} > {df['macd_hist'].iloc[i-1]}) and ({df['macd'].iloc[i]} > 0)")
-            print(f"buy_cond4: {buy_cond4}={df['volume'].iloc[i]}>{df['vol_ma20'].iloc[i]}")
-
-        # 卖出条件
-        sell_cond1 = df['w_ma20'].iloc[i] < df['m_ma12'].iloc[i]
-        sell_cond2 = (df['ma20'].iloc[i] < df['w_ma20'].iloc[i])
-        sell_cond3 = (df['macd'].iloc[i] < df['macd_signal'].iloc[i]) and (df['macd_hist'].iloc[i] < df['macd_hist'].iloc[i-1]) and (df['macd'].iloc[i] < 0)
-        sell_cond4 = df['volume'].iloc[i] > df['vol_ma20'].iloc[i]
-
-        if debug and i >= len(df) - 1:
-            print(f"sell_cond1: {sell_cond1}={df['w_ma20'].iloc[i]}<{df['m_ma12'].iloc[i]}")
-            print(f"sell_cond2: {sell_cond2}={df['ma20'].iloc[i]}<{df['w_ma20'].iloc[i]}")
-            print(f"sell_cond3: {sell_cond3}=({df['macd'].iloc[i]} < {df['macd_signal'].iloc[i]}) and ({df['macd_hist'].iloc[i]} < {df['macd_hist'].iloc[i-1]}) and ({df['macd'].iloc[i]} < 0)")
-            print(f"sell_cond4: {sell_cond4}={df['volume'].iloc[i]}>{df['vol_ma20'].iloc[i]}")
+        # 基础信号
+        basic_signal1 = df['w_ma20'].iloc[i] > df['m_ma12'].iloc[i]
+        basic_signal2 = df['volume'].iloc[i] > df['vol_ma20'].iloc[i]
+        basic_signal3 = (df['w_ma20'].iloc[i] > df['m_ma12'].iloc[i]) and (df['w_ma20'].iloc[i-1] <= df['m_ma12'].iloc[i-1])
+        basic_signal4 = df['w_ma20'].iloc[i] < df['m_ma12'].iloc[i]
+        basic_signal5 = (df['w_ma20'].iloc[i] < df['m_ma12'].iloc[i]) and (df['w_ma20'].iloc[i-1] >= df['m_ma12'].iloc[i-1])
 
         # 生成信号
-        buy = int(buy_cond1 and buy_cond4)
-        sell = int(sell_cond1 and sell_cond4)
-        df.loc[i, 'buy_sell'] = buy + sell
+        df.loc[i, 'basic_signal1'] = int(basic_signal1)
+        df.loc[i, 'basic_signal2'] = int(basic_signal2)
+        df.loc[i, 'basic_signal3'] = int(basic_signal3)
+        df.loc[i, 'basic_signal4'] = int(basic_signal4)
+        df.loc[i, 'basic_signal5'] = int(basic_signal5)
 
         if debug and i >= len(df) - 1:
-            print(f"buy_sell: {df.loc[i, 'buy_sell']} buy_cond1: {buy_cond1} buy_cond2: {buy_cond2} buy_cond3: {buy_cond3} buy_cond4: {buy_cond4} sell_cond1: {sell_cond1} sell_cond2: {sell_cond2} sell_cond3: {sell_cond3} sell_cond4: {sell_cond4}")
-
-        # 计算 ma20 和 w_ma20 的交叉信号
-        diff_current = df['ma20'].iloc[i] - df['w_ma20'].iloc[i]
-        diff_previous = df['ma20'].iloc[i-1] - df['w_ma20'].iloc[i-1]
-        if diff_current > 0 and diff_previous <= 0:
-            # 向上交叉
-            df.loc[i, 'ma_cross'] = 1
-        elif diff_current < 0 and diff_previous >= 0:
-            # 向下交叉
-            df.loc[i, 'ma_cross'] = -1
-
-        if debug and i >= len(df) - 1:
-            print(f"diff_current: {diff_current}={df['ma20'].iloc[i]}-{df['w_ma20'].iloc[i]} ")
-            print(f"diff_previous: {diff_previous}={df['ma20'].iloc[i-1]}-{df['w_ma20'].iloc[i-1]} ")
-
-        # 计算 macd 的交叉信号
-        macd_diff_current = df['macd'].iloc[i] - df['macd_signal'].iloc[i]
-        macd_diff_previous = df['macd'].iloc[i-1] - df['macd_signal'].iloc[i-1]
-        if macd_diff_current > 0 and macd_diff_previous <= 0:
-            # 向上交叉
-            df.loc[i, 'macd_cross'] = 1
-        elif macd_diff_current < 0 and macd_diff_previous >= 0:
-            # 向下交叉
-            df.loc[i, 'macd_cross'] = -1
-
-        if debug and i >= len(df) - 1:
-            print(f"macd_diff_current: {macd_diff_current}={df['macd'].iloc[i]}-{df['macd_signal'].iloc[i]} ")
-            print(f"macd_diff_previous: {macd_diff_previous}={df['macd'].iloc[i-1]}-{df['macd_signal'].iloc[i-1]} ")
-
-    # 填补缺失值
-    df.ffill(inplace=True)
-    df.reset_index(inplace=True)
-
-    for i in range(2, len(df)):
-        # 计算买卖点信号
-        buy_point_single = int(df.loc[i, 'buy_sell'] == 1)
-        sell_point_single = int(df.loc[i, 'buy_sell'] == -1)
-        df.loc[i, 'buy_sell_point_single'] = buy_point_single + sell_point_single
+            print(f"【{symbol}】最后一次数据：")
+            print(f"【{symbol}】basic_signal1: {basic_signal1}={df['w_ma20'].iloc[i]}>{df['m_ma12'].iloc[i]}")
+            print(f"【{symbol}】asic_signal2: {basic_signal2}={df['volume'].iloc[i]}>{df['vol_ma20'].iloc[i]}")
+            print(f"【{symbol}】basic_signal3: {basic_signal3}=({df['w_ma20'].iloc[i]} > {df['m_ma12'].iloc[i]} and {df['w_ma20'].iloc[i-1]} <= {df['m_ma12'].iloc[i-1]})")
+            print(f"【{symbol}】basic_signal4: {basic_signal4}={df['w_ma20'].iloc[i]}<{df['m_ma12'].iloc[i]}")
+            print(f"【{symbol}】basic_signal5: {basic_signal5}=({df['w_ma20'].iloc[i]} < {df['m_ma12'].iloc[i]} and {df['w_ma20'].iloc[i-1]} >= {df['m_ma12'].iloc[i-1]})")
 
     if debug:
-        print(f"√ 日线整合买点卖点信号完成\n{df.tail(20)}")
+        print(f"√ 【{symbol}】日线整合基础信号完成\n{df.tail(20)}")
 
     return df
+
+
+# ========== 生成买卖点信号 ==========
+def generate_buy_sell_signals(df, symbol, debug):
+    print(f"开始【{symbol}】生成买卖点信号...")
+    for i in range(2, len(df)):
+        df.loc[i, 'buy_signal'] = int(df['basic_signal3'].iloc[i] == 1 and df['basic_signal2'].iloc[i] == 1)
+        df.loc[i, 'sell_signal'] = int(df['basic_signal5'].iloc[i] == 1 and df['basic_signal2'].iloc[i] == 1)
+
+    if debug:
+        print(f"√ 【{symbol}】日线整合买卖点信号完成\n{df.tail(20)}")
+
+        # 打印df中buy_signal或sell_signal为1的数据
+        filtered_df = df[(df['buy_signal'] == 1) | (df['sell_signal'] == 1)]
+        print(f"【{symbol}】buy_signal或sell_signal为1的数据：\n{filtered_df.tail(20)}")
+
+    return df
+
+
+# ========== 主回测 ==========
+def backtest(debug):
+    print(f"开始主回测...")
+    all_data = {}
+
+    # 获取并处理每只ETF数据
+    for symbol in ETF_LIST:
+        df = get_etf_data(symbol, debug)
+        if df is None or len(df) < 100:
+            continue
+        df = calculate_indicators(df, symbol, debug)
+        df = generate_basic_signals(df, symbol, debug)
+        df = generate_buy_sell_signals(df, symbol, debug)
+        all_data[symbol] = df
+
+    # 组合回测
+    dates = pd.date_range(start=START_DATE, end=END_DATE, freq='D')
+    portfolio = pd.DataFrame(index=dates, columns=['equity', 'holdings', 'cash'])
+    portfolio['equity'] = float(INITIAL_CAPITAL)
+    portfolio['cash'] = float(INITIAL_CAPITAL)
+    portfolio['holdings'] = 0.0
+
+    # 初始化前一日现金
+    prev_cash = float(INITIAL_CAPITAL)
+    # {symbol: shares}
+    current_holdings = {}
+    trade_log = []
+
+    for date in dates:
+        if date not in portfolio.index:
+            continue
+
+        # 继承前一日的现金余额
+        portfolio.loc[date, 'cash'] = prev_cash
+
+        # 检查当日是否有ETF发出信号
+        buy_list = []
+        sell_list = []
+
+        for symbol in all_data:
+            df = all_data[symbol]
+            if date in df['date'].values:
+                row = df[df['date'] == date].iloc[0]
+                if row['buy_signal'] == 1:
+                    buy_list.append(symbol)
+                if row['sell_signal'] == 1 and symbol in current_holdings:
+                    sell_list.append(symbol)
+
+        # 先处理卖出
+        if sell_list:
+            available_cash = portfolio.loc[date, 'cash']
+            if debug:
+                print(f"【买卖记录】日期: {date}, 可用现金: {available_cash}, 卖出列表: {sell_list}")
+            for symbol in sell_list:
+                df = all_data[symbol]
+                price = df[df['date'] == date]['close'].values[0]
+                shares = current_holdings[symbol]
+                amount = shares * price * (1 - COMMISSION)
+                portfolio.loc[date, 'cash'] += amount
+                if debug:
+                    print(f"【买卖记录】日期: {date} 卖出 {symbol}: 价格={price}, 份额={shares}, 获得金额={amount}")
+                del current_holdings[symbol]
+                trade_log.append({
+                    'date': date, 'symbol': symbol, 'action': 'SELL',
+                    'price': price, 'shares': shares, 'amount': amount
+                })
+
+        # 再处理买入（用当前现金等分）
+        if buy_list:
+            available_cash = portfolio.loc[date, 'cash']
+            if debug:
+                print(f"【买卖记录】日期: {date}, 可用现金: {available_cash}, 买入列表: {buy_list}")
+            per_cash = available_cash / len(buy_list)
+            for symbol in buy_list:
+                df = all_data[symbol]
+                price = df[df['date'] == date]['close'].values[0]
+                # 以100份为单位
+                shares = int((per_cash * (1 - COMMISSION)) // (price * 100)) * 100
+                if shares > 0:
+                    cost = shares * price * (1 + COMMISSION)
+                    if debug:
+                        print(f"【买卖记录】日期: {date} 买入 {symbol}: 价格={price}, 份额={shares}, 成本={cost}")
+                    portfolio.loc[date, 'cash'] -= cost
+                    current_holdings[symbol] = shares
+                    trade_log.append({
+                        'date': date, 'symbol': symbol, 'action': 'BUY',
+                        'price': price, 'shares': shares, 'amount': cost
+                    })
+
+        # 计算当日持仓市值
+        holding_value = 0
+        for symbol, shares in current_holdings.items():
+            df = all_data[symbol]
+            if date in df['date'].values:
+                price = df[df['date'] == date]['close'].values[0]
+                holding_value += shares * price
+                if debug and date >= pd.Timestamp.now() - pd.Timedelta(days=20):
+                    print(f"【买卖记录】持仓详情 日期: {date}, {symbol} {shares}份 @ {price}元 = {shares * price}元")
+        portfolio.loc[date, 'holdings'] = holding_value
+        portfolio.loc[date, 'equity'] = portfolio.loc[date, 'cash'] + holding_value
+
+        if debug and date >= pd.Timestamp.now() - pd.Timedelta(days=20):
+            print(f"【买卖记录】当日总结: date={date}, cash={portfolio.loc[date, 'cash']}, holdings={holding_value}, equity={portfolio.loc[date, 'equity']}")
+
+        # 更新前一日现金余额
+        prev_cash = portfolio.loc[date, 'cash']
+
+    if debug:
+        print(f"√ portfolio主回测数据完成\n{portfolio.tail(20)}")
+        print(f"√ trade_log主回测完整交易记录")
+        for record in trade_log:
+            print(f"  {record['date'].strftime('%Y-%m-%d')}: {record['action']} {record['symbol']} @ {record['shares']}份 {record['price']: .3f}元 共{record['amount']: .2f}元")
+        for symbol, df in all_data.items():
+            print(f"√ {ETF_NAMES.get(symbol, symbol)}all_data主回测数据完成\n{df.tail(20)}")
+
+    return portfolio, trade_log, all_data
+
 
 # ========== 主程序 ==========
 if __name__ == "__main__":
@@ -197,11 +282,7 @@ if __name__ == "__main__":
     pd.set_option('display.max_columns', None)
     pd.set_option('display.width', None)
     pd.set_option('display.max_colwidth', None)
+    pd.set_option('display.float_format', '{:.2f}'.format)
 
-    print("🚀 开始回测...")
-    df = get_etf_data(515790, False)
-    df = calculate_indicators(df, False)
-    df = generate_signals(df, False)
-
-    filtered_df = df[df['buy_sell_point_single'].isin([1, -1])]
-    print(f"√ 日线整合买点卖点信号完成\n{filtered_df[['date', 'buy_sell_point_single']]}")
+    print("🚀 开始...")
+    basket, trade_record, etf_data = backtest(True)
