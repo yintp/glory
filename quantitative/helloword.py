@@ -174,6 +174,7 @@ def backtest(debug):
         all_data[symbol] = df
 
     # 组合回测
+    print(f"开始组合回测...")
     dates = pd.date_range(start=START_DATE, end=END_DATE, freq='D')
     portfolio = pd.DataFrame(index=dates, columns=['equity', 'holdings', 'cash'])
     portfolio['equity'] = float(INITIAL_CAPITAL)
@@ -250,6 +251,8 @@ def backtest(debug):
         # 计算当日持仓市值
         holding_value = 0
         for symbol, shares in current_holdings.items():
+            if shares <= 0:
+                continue
             df = all_data[symbol]
             if date in df['date'].values:
                 price = df[df['date'] == date]['close'].values[0]
@@ -257,7 +260,8 @@ def backtest(debug):
                 if debug and date >= pd.Timestamp.now() - pd.Timedelta(days=20):
                     print(f"【买卖记录】持仓详情 日期: {date}, {symbol} {shares}份 @ {price}元 = {shares * price}元")
             else:
-                print(f"【买卖记录】非交易日 日期: {date} 获取{symbol}价格失败")
+                if debug:
+                    print(f"【买卖记录】非交易日 日期: {date} 获取{symbol}价格失败")
                 # 取date最近df的一个有数据的交易日
                 closest_date = df[df['date'] <= date]['date'].max()
                 if pd.notna(closest_date):
@@ -289,6 +293,63 @@ def backtest(debug):
     return portfolio, trade_log, all_data
 
 
+# ========== 绩效计算 ==========
+def calculate_performance(portfolio, trade_log, all_data):
+    print(f"开始计算绩效...")
+    total_return = (portfolio['equity'].iloc[-1] / INITIAL_CAPITAL) - 1
+    annualized_return = (1 + total_return) ** (252 / len(portfolio)) - 1
+
+    # 最大回撤
+    cum_max = portfolio['equity'].cummax()
+    drawdown = (portfolio['equity'] - cum_max) / cum_max
+    max_drawdown = drawdown.min()
+
+    # 胜率
+    profits = []
+    for i in range(1, len(trade_log), 2):
+        if trade_log[i]['action'] == 'SELL' and trade_log[i-1]['action'] == 'BUY':
+            buy_amount = trade_log[i-1]['amount']
+            sell_amount = trade_log[i]['amount']
+            profit = sell_amount - buy_amount
+            profits.append(profit)
+    win_rate = np.mean(np.array(profits) > 0) if profits else 0
+
+    # 资金利用率
+    holding_days = (portfolio['holdings'] > 0).sum()
+    total_days = len(portfolio)
+    capital_utilization = holding_days / total_days
+
+    # 计算每个ETF的年化收益
+    etf_returns = {}
+    for symbol, df in all_data.items():
+        if len(df) > 1:
+            # 计算ETF自身的年化收益率
+            first_price = df['close'].iloc[0]
+            last_price = df['close'].iloc[-1]
+            etf_total_return = (last_price / first_price) - 1
+
+            # 计算交易天数
+            trading_days = len(df)
+            etf_annualized = (1 + etf_total_return) ** (252 / trading_days) - 1
+
+            etf_returns[symbol] = {
+                '总收益': f"{etf_total_return:.2%}",
+                '年化收益': f"{etf_annualized:.2%}",
+                '交易天数': trading_days
+            }
+
+    return {
+        '总收益率': f"{total_return:.2%}",
+        '年化收益率': f"{annualized_return:.2%}",
+        '最大回撤': f"{max_drawdown:.2%}",
+        '胜率': f"{win_rate:.1%}",
+        '资金利用率': f"{capital_utilization:.1%}",
+        '期末净值': f"¥{portfolio['equity'].iloc[-1]:,.0f}",
+        '总交易次数': f"{len(trade_log)}",
+        'ETF年化收益': etf_returns
+    }
+
+
 # ========== 主程序 ==========
 if __name__ == "__main__":
     # 设置 pandas 显示选项
@@ -298,4 +359,9 @@ if __name__ == "__main__":
     pd.set_option('display.float_format', '{:.2f}'.format)
 
     print("🚀 开始...")
-    basket, trade_record, etf_data = backtest(True)
+    basket, trade_record, etf_data = backtest(False)
+    perf = calculate_performance(basket, trade_record, etf_data)
+
+    print("\n📊 策略绩效:")
+    for k, v in perf.items():
+        print(f"  {k}: {v}")
