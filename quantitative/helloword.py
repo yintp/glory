@@ -294,11 +294,79 @@ def backtest(debug):
     return portfolio, trade_log, all_data
 
 
+# ========== 单个etf绩效计算 ==========
+def calculate_etf_performance(trade_log):
+    # 计算每个ETF的**实际交易收益**
+    etf_returns = {}
+    # 存储每个ETF的交易记录
+    etf_trade_profits = {}
+
+    # 先整理每个ETF的交易记录
+    for record in trade_log:
+        symbol = record['symbol']
+        if symbol not in etf_trade_profits:
+            etf_trade_profits[symbol] = []
+        etf_trade_profits[symbol].append(record)
+
+    # 计算每个ETF的实际交易收益
+    for symbol in etf_trade_profits:
+        trades = etf_trade_profits[symbol]
+        # 至少需要一笔买入和一笔卖出
+        if len(trades) < 2:
+            continue
+
+        # 为每个完整的交易对计算收益和年化
+        individual_returns = []
+        buy_stack = []  # 用于匹配买入和卖出
+
+        for record in trades:
+            if record['action'] == 'BUY':
+                buy_stack.append(record)
+            elif record['action'] == 'SELL' and buy_stack:
+                buy_record = buy_stack.pop(0)  # 匹配最早的买入
+
+                # 计算单次交易收益
+                buy_amount = buy_record['amount']
+                sell_amount = record['amount']
+                single_return = (sell_amount - buy_amount) / buy_amount
+                holding_days = (record['date'] - buy_record['date']).days
+
+                # 计算单次交易年化收益
+                single_annualized = (1 + single_return) ** (365 / holding_days) - 1 if holding_days > 0 else 0
+
+                individual_returns.append({
+                    '交易编号': len(individual_returns) + 1,
+                    '买入日期': buy_record['date'].strftime('%Y-%m-%d'),
+                    '卖出日期': record['date'].strftime('%Y-%m-%d'),
+                    '持仓天数': holding_days,
+                    '单次收益率': f"{single_return:.2%}",
+                    '单次年化收益': f"{single_annualized:.2%}",
+                    '买入金额': f"¥{buy_amount:,.2f}",
+                    '卖出金额': f"¥{sell_amount:,.2f}"
+                })
+
+        # 计算总体统计
+        if individual_returns:
+            total_trades = len(individual_returns)
+            avg_return = np.mean([float(ret['单次收益率'].rstrip('%'))/100 for ret in individual_returns])
+            avg_annualized = np.mean([float(ret['单次年化收益'].rstrip('%'))/100 for ret in individual_returns])
+
+            etf_returns[symbol] = {
+                '交易次数': total_trades,
+                '平均单次收益率': f"{avg_return:.2%}",
+                '平均年化收益': f"{avg_annualized:.2%}",
+                '详细交易记录': individual_returns
+            }
+    return etf_returns
+
+
 # ========== 绩效计算 ==========
-def calculate_performance(portfolio, trade_log, all_data):
+def calculate_performance(portfolio, trade_log):
     print(f"开始计算绩效...")
     total_return = (portfolio['equity'].iloc[-1] / INITIAL_CAPITAL) - 1
-    annualized_return = (1 + total_return) ** (252 / len(portfolio)) - 1
+
+    trading_days = len(portfolio)
+    annualized_return = (1 + total_return) ** (252 / trading_days) - 1 if trading_days > 0 else 0
 
     # 最大回撤
     cum_max = portfolio['equity'].cummax()
@@ -307,10 +375,19 @@ def calculate_performance(portfolio, trade_log, all_data):
 
     # 胜率
     profits = []
-    for i in range(1, len(trade_log), 2):
-        if trade_log[i]['action'] == 'SELL' and trade_log[i-1]['action'] == 'BUY':
-            buy_amount = trade_log[i-1]['amount']
-            sell_amount = trade_log[i]['amount']
+    # 记录每个symbol的买入记录
+    buy_records = {}
+    for record in trade_log:
+        symbol = record['symbol']
+        if record['action'] == 'BUY':
+            if symbol not in buy_records:
+                buy_records[symbol] = []
+            buy_records[symbol].append(record)
+        elif record['action'] == 'SELL' and symbol in buy_records and buy_records[symbol]:
+            # 匹配最近的一笔买入
+            buy_record = buy_records[symbol].pop(0)
+            buy_amount = buy_record['amount']
+            sell_amount = record['amount']
             profit = sell_amount - buy_amount
             profits.append(profit)
     win_rate = np.mean(np.array(profits) > 0) if profits else 0
@@ -320,24 +397,7 @@ def calculate_performance(portfolio, trade_log, all_data):
     total_days = len(portfolio)
     capital_utilization = holding_days / total_days
 
-    # 计算每个ETF的年化收益
-    etf_returns = {}
-    for symbol, df in all_data.items():
-        if len(df) > 1:
-            # 计算ETF自身的年化收益率
-            first_price = df['close'].iloc[0]
-            last_price = df['close'].iloc[-1]
-            etf_total_return = (last_price / first_price) - 1
-
-            # 计算交易天数
-            trading_days = len(df)
-            etf_annualized = (1 + etf_total_return) ** (252 / trading_days) - 1
-
-            etf_returns[symbol] = {
-                '总收益': f"{etf_total_return:.2%}",
-                '年化收益': f"{etf_annualized:.2%}",
-                '交易天数': trading_days
-            }
+    etf_returns = calculate_etf_performance(trade_log)
 
     return {
         '总收益率': f"{total_return:.2%}",
@@ -352,11 +412,19 @@ def calculate_performance(portfolio, trade_log, all_data):
 
 
 # ========== 绘图 ==========
-def plot_signals(etf_data, symbol, debug):
+def plot_signals_3(all_data, debug):
+    # 绘制前3只ETF的信号图📈
+    for symbol in ETF_LIST[:1]:
+        if symbol in all_data:
+            plot_signals(all_data, symbol, debug)
+
+
+# ========== 绘图 ==========
+def plot_signals(all_data, symbol, debug):
     print(f"开始绘制【{symbol}】的买卖信号图...")
     # 使用非交互式后端
     matplotlib.use('Agg')
-    df = etf_data[symbol].copy()
+    df = all_data[symbol].copy()
     df.set_index('date', inplace=True)
 
     plt.figure(figsize=(14, 7))
@@ -399,12 +467,8 @@ if __name__ == "__main__":
 
     print("🚀 开始...")
     basket, trade_record, etf_data = backtest(False)
-    perf = calculate_performance(basket, trade_record, etf_data)
-
-    # 绘制前3只ETF的信号图📈
-    for symbol in ETF_LIST[:1]:
-        if symbol in etf_data:
-            plot_signals(etf_data, symbol, False)
+    perf = calculate_performance(basket, trade_record)
+    plot_signals_3(etf_data, False)
 
     print("\n📊 策略绩效:")
     for k, v in perf.items():
