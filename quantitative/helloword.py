@@ -256,6 +256,19 @@ def backtest(debug):
                 holding_value += shares * price
                 if debug and date >= pd.Timestamp.now() - pd.Timedelta(days=20):
                     print(f"【买卖记录】持仓详情 日期: {date}, {symbol} {shares}份 @ {price}元 = {shares * price}元")
+            else:
+                print(f"【买卖记录】非交易日 日期: {date} 获取{symbol}价格失败")
+                # 取date最近df的一个有数据的交易日
+                closest_date = df[df['date'] <= date]['date'].max()
+                if pd.notna(closest_date):
+                    price = df[df['date'] == closest_date]['close'].values[0]
+                    holding_value += shares * price
+                    if debug:
+                        print(f"【买卖记录】持仓详情 日期: {date}, 【数据补充】使用最近交易日 {closest_date} 的价格: {symbol} {shares}份 @ {price}元 = {shares * price}元")
+                else:
+                    if debug:
+                        print(f"【买卖记录】【警告】{symbol} 在 {date} 之前无任何交易数据")
+
         portfolio.loc[date, 'holdings'] = holding_value
         portfolio.loc[date, 'equity'] = portfolio.loc[date, 'cash'] + holding_value
 
