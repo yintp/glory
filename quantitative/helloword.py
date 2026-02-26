@@ -14,6 +14,7 @@
 import akshare as ak
 import pandas as pd
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from ta.trend import macd, macd_signal, macd_diff
@@ -350,6 +351,44 @@ def calculate_performance(portfolio, trade_log, all_data):
     }
 
 
+# ========== 绘图 ==========
+def plot_signals(etf_data, symbol, debug):
+    print(f"开始绘制【{symbol}】的买卖信号图...")
+    # 使用非交互式后端
+    matplotlib.use('Agg')
+    df = etf_data[symbol].copy()
+    df.set_index('date', inplace=True)
+
+    plt.figure(figsize=(14, 7))
+    plt.plot(df.index, df['close'], label='收盘价', color='black', linewidth=1)
+    plt.plot(df.index, df['ma20'], label='日MA20', color='orange')
+    plt.plot(df.index, df['w_ma20'], label='周MA20', color='blue')
+    plt.plot(df.index, df['m_ma12'], label='月MA12', color='purple')
+
+    # 标记买卖点
+    buy_points = df[df['buy_signal'] == 1]
+    sell_points = df[df['sell_signal'] == 1]
+    if len(buy_points) > 0:
+        plt.scatter(buy_points.index, buy_points['close'], marker='^', color='red', s=100, label='买入')
+    if len(sell_points) > 0:
+        plt.scatter(sell_points.index, sell_points['close'], marker='v', color='green', s=100, label='卖出')
+
+    plt.title(f"{symbol}买卖信号")
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.gca().xaxis.set_major_locator(mdates.YearLocator())
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    plt.tight_layout()
+    plt.savefig(f"{symbol}_signals.png", dpi=150, bbox_inches='tight')
+    # 关闭图形释放内存
+    plt.close()
+
+    if debug:
+        print(f"【{symbol}】买入信号点数量: {len(buy_points)}")
+        print(f"【{symbol}】卖出信号点数量: {len(sell_points)}")
+        print(f"√ 已保存 【{symbol}】 信号图至 {symbol}_signals.png")
+
+
 # ========== 主程序 ==========
 if __name__ == "__main__":
     # 设置 pandas 显示选项
@@ -362,6 +401,13 @@ if __name__ == "__main__":
     basket, trade_record, etf_data = backtest(False)
     perf = calculate_performance(basket, trade_record, etf_data)
 
+    # 绘制前3只ETF的信号图📈
+    for symbol in ETF_LIST[:1]:
+        if symbol in etf_data:
+            plot_signals(etf_data, symbol, False)
+
     print("\n📊 策略绩效:")
     for k, v in perf.items():
         print(f"  {k}: {v}")
+
+
