@@ -27,15 +27,55 @@ ETF_LIST = [
     "512170",
     "512010",
     "513050",
+    "510300",
+    "563360",
+    "588000",
+    "159915",
+    "510050",
+    "512480",
+    "515070",
+    "515880",
+    "562500",
+    "159995",
+    "513180",
+    "515290",
+    "510880",
+    "517090",
+    "512800",
+    "561700",
+    "512880",
+    "512690",
+    "512400",
+    "518880"
 ]
 ETF_NAMES = {
     "515790": "光伏ETF",
     "512170": "医疗ETF",
     "512010": "医药ETF",
     "513050": "中概互联网ETF",
+    "510300": "沪深300ETF",
+    "563360": "中证A500ETF",
+    "588000": "科创50ETF",
+    "159915": "创业板ETF",
+    "510050": "上证50ETF",
+    "512480": "半导体ETF",
+    "515070": "人工智能AI ETF",
+    "515880": "通信ETF",
+    "562500": "机器人ETF",
+    "159995": "芯片ETF",
+    "513180": "恒生科技ETF",
+    "515290": "软件ETF",
+    "510880": "红利ETF",
+    "517090": "央企共赢ETF",
+    "512800": "银行ETF",
+    "561700": "公用事业ETF",
+    "512880": "证券ETF",
+    "512690": "酒ETF",
+    "512400": "有色ETF",
+    "518880": "黄金ETF"
 }
-START_DATE = "20180101"
-END_DATE = "20260225"
+START_DATE = "20210101"
+END_DATE = "20260101"
 INITIAL_CAPITAL = 1_000_000  # 100万元
 COMMISSION = 0.0003  # 0.03%
 
@@ -152,8 +192,8 @@ def generate_basic_signals(df, symbol, debug):
 def generate_buy_sell_signals(df, symbol, debug):
     print(f"开始【{symbol}】生成买卖点信号...")
     for i in range(2, len(df)):
-        df.loc[i, 'buy_signal'] = int(df['basic_signal3'].iloc[i] == 1 and df['basic_signal2'].iloc[i] == 1)
-        df.loc[i, 'sell_signal'] = int(df['basic_signal5'].iloc[i] == 1 and df['basic_signal2'].iloc[i] == 1)
+        df.loc[i, 'buy_signal'] = int(df['basic_signal3'].iloc[i] == 1)
+        df.loc[i, 'sell_signal'] = int(df['basic_signal5'].iloc[i] == 1)
 
     if debug:
         print(f"√ 【{symbol}】日线整合买卖点信号完成\n{df.tail(20)}")
@@ -379,38 +419,12 @@ def calculate_performance(portfolio, trade_log):
     drawdown = (portfolio['equity'] - cum_max) / cum_max
     max_drawdown = drawdown.min()
 
-    # 胜率
-    profits = []
-    # 记录每个symbol的买入记录
-    buy_records = {}
-    for record in trade_log:
-        symbol = record['symbol']
-        if record['action'] == 'BUY':
-            if symbol not in buy_records:
-                buy_records[symbol] = []
-            buy_records[symbol].append(record)
-        elif record['action'] == 'SELL' and symbol in buy_records and buy_records[symbol]:
-            # 匹配最近的一笔买入
-            buy_record = buy_records[symbol].pop(0)
-            buy_amount = buy_record['amount']
-            sell_amount = record['amount']
-            profit = sell_amount - buy_amount
-            profits.append(profit)
-    win_rate = np.mean(np.array(profits) > 0) if profits else 0
-
-    # 资金利用率
-    holding_days = (portfolio['holdings'] > 0).sum()
-    total_days = len(portfolio)
-    capital_utilization = holding_days / total_days
-
     etf_returns = calculate_etf_performance(trade_log)
 
     return {
         '总收益率': f"{total_return:.2%}",
         '年化收益率': f"{annualized_return:.2%}",
         '最大回撤': f"{max_drawdown:.2%}",
-        '胜率': f"{win_rate:.1%}",
-        '资金利用率': f"{capital_utilization:.1%}",
         '期末净值': f"¥{portfolio['equity'].iloc[-1]:,.0f}",
         '总交易次数': f"{len(trade_log)}",
         'ETF年化收益': etf_returns
