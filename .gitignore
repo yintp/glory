@@ -1,0 +1,41 @@
+# build
+build/
+out/
+*.class
+target/
+
+# IntelliJ IDEA
+.idea
+*.iws
+*.iml
+*.ipr
+
+# gradle
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+!gradlew
+!gradlew.bat
+
+# 日志
+*.log
+logs/
+
+# Claude Code
+.claude/settings.local.json
+.claude/settings.json
+.claude/memory/
+
+# Playwright MCP
+.playwright-mcp/
+page-*.png
+page-*.jpeg
+
+# superpowers
+.superpowers/
+
+# ETF dashboard runtime files
+quantitative/etf.db
+quantitative/__pycache__/
+quantitative/app/__pycache__/
+quantitative/app/services/__pycache__/
+quantitative/app/routes/__pycache__/

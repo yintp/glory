@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>ETF 分析平台</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1/dist/chartjs-chart-financial.min.js"></script>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-title">📊 ETF 分析平台</span>
+  <button class="tab-btn active" data-tab="chart">图表分析</button>
+  <button class="tab-btn" data-tab="manage">ETF 管理</button>
+  <button class="tab-btn" data-tab="rank">热度排行</button>
+  <button class="tab-btn" data-tab="update">数据更新</button>
+  <span class="nav-status" id="nav-status">—</span>
+</nav>
+
+<!-- Tab 1: 图表分析 -->
+<div class="tab-panel active" id="tab-chart">
+  <div class="heat-sidebar">
+    <div class="heat-sidebar-title">🔥 热度榜</div>
+    <div id="heat-list"></div>
+  </div>
+  <div class="chart-area">
+    <div class="chart-toolbar">
+      <h3 id="chart-title">请选择 ETF</h3>
+      <button class="range-btn active" data-range="3M">3M</button>
+      <button class="range-btn" data-range="1M">1M</button>
+      <button class="range-btn" data-range="6M">6M</button>
+      <button class="range-btn" data-range="1Y">1Y</button>
+    </div>
+    <div class="chart-box"><canvas id="chart-price"></canvas></div>
+    <div class="chart-box"><canvas id="chart-macd"></canvas></div>
+    <div class="chart-box"><canvas id="chart-volume"></canvas></div>
+    <div class="info-row">
+      <div class="info-card">
+        <div class="label">当前信号</div>
+        <div class="value" id="info-signal">—</div>
+      </div>
+      <div class="info-card">
+        <div class="label">热度得分</div>
+        <div class="value" id="info-heat">—</div>
+      </div>
+      <div class="info-card" id="info-holding-card">
+        <div class="label">机构持仓</div>
+        <div class="value" id="info-holding">—</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px" id="info-holding-period"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 2: ETF 管理 -->
+<div class="tab-panel" id="tab-manage">
+  <div class="mgmt-panel">
+    <div class="add-form">
+      <input id="add-symbol" placeholder="ETF 代码（如 512480）" style="width:180px">
+      <input id="add-name" placeholder="名称（如 半导体ETF）" style="width:180px">
+      <button class="btn" id="btn-add">+ 添加</button>
+    </div>
+    <table id="manage-table">
+      <thead>
+        <tr><th>代码</th><th>名称</th><th>状态</th><th>最后更新</th><th>操作</th></tr>
+      </thead>
+      <tbody id="manage-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tab 3: 热度排行 -->
+<div class="tab-panel" id="tab-rank">
+  <div class="rank-panel">
+    <table id="rank-table">
+      <thead>
+        <tr><th>#</th><th>名称</th><th>热度</th><th>信号</th><th>最新价</th><th>涨跌幅</th></tr>
+      </thead>
+      <tbody id="rank-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tab 4: 数据更新 -->
+<div class="tab-panel" id="tab-update">
+  <div class="update-panel">
+    <div class="update-header">
+      <button class="btn" id="btn-update">🔄 更新数据</button>
+      <span id="update-status-text" style="color:var(--text2)">—</span>
+    </div>
+    <div class="update-log" id="update-log"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

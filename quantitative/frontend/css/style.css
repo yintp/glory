@@ -1,0 +1,99 @@
+:root {
+  --bg: #0d0d1a;
+  --bg2: #12121e;
+  --bg3: #1a1a2e;
+  --border: #2a2a3e;
+  --text: #e0e0f0;
+  --text2: #8888aa;
+  --accent: #7c9eff;
+  --green: #4caf50;
+  --red: #f44336;
+  --orange: #ff8c00;
+  --yellow: #ffc107;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; font-size: 14px; }
+
+/* Nav */
+.nav { display: flex; align-items: center; background: var(--bg2); border-bottom: 1px solid var(--border);
+       padding: 0 20px; height: 48px; gap: 4px; }
+.nav-title { color: var(--accent); font-weight: 700; margin-right: 24px; font-size: 16px; }
+.tab-btn { background: none; border: none; color: var(--text2); cursor: pointer; padding: 12px 16px;
+           font-size: 14px; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.nav-status { margin-left: auto; color: var(--text2); font-size: 12px; }
+
+/* Tab panels */
+.tab-panel { display: none; height: calc(100vh - 48px); overflow: hidden; }
+.tab-panel.active { display: flex; }
+
+/* Tab 1 — Chart Analysis */
+.heat-sidebar { width: 200px; background: var(--bg2); border-right: 1px solid var(--border);
+                overflow-y: auto; padding: 12px 0; flex-shrink: 0; }
+.heat-sidebar-title { padding: 0 12px 8px; color: var(--text2); font-size: 11px;
+                       text-transform: uppercase; letter-spacing: 1px; }
+.heat-item { padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between;
+             align-items: center; border-left: 3px solid transparent; }
+.heat-item:hover { background: var(--bg3); }
+.heat-item.selected { background: var(--bg3); border-left-color: var(--accent); }
+.heat-item-name { font-size: 13px; }
+.heat-badge { font-size: 12px; }
+
+.chart-area { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.chart-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chart-toolbar h3 { color: var(--accent); margin-right: 8px; }
+.range-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+             padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.range-btn.active, .range-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.chart-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+.chart-box canvas { max-height: 220px; }
+.info-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.info-card { background: var(--bg3); border-radius: 6px; padding: 12px; flex: 1; min-width: 140px; }
+.info-card .label { font-size: 11px; color: var(--text2); text-transform: uppercase; margin-bottom: 4px; }
+.info-card .value { font-size: 20px; font-weight: 700; }
+.signal-buy { color: var(--red); }
+.signal-sell { color: var(--green); }
+.signal-watch { color: var(--yellow); }
+
+/* Tab 2 — ETF Management */
+.mgmt-panel { flex: 1; padding: 20px; overflow-y: auto; }
+.add-form { display: flex; gap: 8px; margin-bottom: 20px; align-items: center; }
+.add-form input { background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+                  padding: 8px 12px; border-radius: 4px; font-size: 14px; }
+.btn { background: var(--accent); border: none; color: #fff; padding: 8px 16px;
+       border-radius: 4px; cursor: pointer; font-size: 13px; }
+.btn:hover { opacity: 0.85; }
+.btn-danger { background: var(--red); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 8px 12px; color: var(--text2); font-size: 12px;
+     text-transform: uppercase; border-bottom: 1px solid var(--border); }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+tr:hover td { background: var(--bg3); }
+.badge-active { color: var(--green); }
+.badge-inactive { color: var(--text2); }
+
+/* Tab 3 — Heat Rank */
+.rank-panel { flex: 1; padding: 20px; overflow-y: auto; }
+.heat-3 { color: var(--red); }
+.heat-2 { color: var(--orange); }
+.heat-1 { color: var(--yellow); }
+.heat-0 { color: var(--text2); }
+
+/* Tab 4 — Update */
+.update-panel { flex: 1; padding: 20px; overflow-y: auto; }
+.update-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.update-log { background: var(--bg3); border-radius: 6px; padding: 12px;
+              max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+.log-ok { color: var(--green); }
+.log-fail { color: var(--red); }
+
+/* Toast */
+#toast { position: fixed; bottom: 20px; right: 20px; padding: 10px 18px;
+         border-radius: 6px; background: var(--bg3); border: 1px solid var(--border);
+         color: var(--text); display: none; z-index: 1000; font-size: 13px; }
+#toast.show { display: block; }
+#toast.error { border-color: var(--red); color: var(--red); }
