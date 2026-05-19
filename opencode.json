@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "CLAUDE.md"
+  ],
+  "shell": "pwsh",
+  "watcher": {
+    "ignore": [
+      "**/build/**",
+      "**/.gradle/**",
+      "**/node_modules/**",
+      "**/out/**",
+      "**/.idea/**"
+    ]
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 10000
+  },
+  "plugin": [
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ]
+}
