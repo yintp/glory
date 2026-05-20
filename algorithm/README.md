@@ -12,6 +12,7 @@ leetcode/
 │   ├── ListNode        链表节点
 │   ├── TreeNode        二叉树节点
 │   └── Node            图节点
+├── phase1/             第1-2周 前置：基础数据结构（手写实现 + 设计题）
 ├── topic1/             第3周  专题1: 数组 & 哈希表
 ├── topic2/             第4周  专题2: 双指针 & 滑动窗口
 ├── topic3/             第5周  专题3: 链表
@@ -41,6 +42,17 @@ leetcode/
     ↓
 第四阶段：模拟面试冲刺（第15周起）
 ```
+
+### 第一阶段：基础数据结构（phase1，第1-2周）
+
+| 子包 | 手写实现 | 配套题目 |
+|------|---------|---------|
+| array | MyArrayList（动态数组） | Q704 二分查找 |
+| hashtable | MyHashMap（链地址法） | Q705 设计哈希集合、Q706 设计哈希映射 |
+| linkedlist | MyLinkedList（双向链表） | Q707 设计链表 |
+| stack | MyStack（数组实现） | Q155 最小栈、Q232 用栈实现队列 |
+| queue | MyQueue（循环数组） | Q622 设计循环队列 |
+| binarytree | MyBinaryTree（BST+递归遍历） | Q94/Q144/Q145 三种遍历（迭代） |
 
 ---
 
