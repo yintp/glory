@@ -1,5 +1,8 @@
 package com.yintp.algorithm.leetcode.topic1;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * #217 存在重复元素 (Contains Duplicate) - Easy
  * 专题: 数组 & 哈希表 | 第3周 Day1
@@ -13,7 +16,13 @@ package com.yintp.algorithm.leetcode.topic1;
  */
 public class Q217ContainsDuplicate {
     public boolean containsDuplicate(int[] nums) {
-        // TODO: HashSet 去重
+        Set<Integer> set = new HashSet<>();
+        for (int i = 0; i < nums.length; i++) {
+            boolean add = set.add(nums[i]);
+            if (!add) {
+                return true;
+            }
+        }
         return false;
     }
 }
