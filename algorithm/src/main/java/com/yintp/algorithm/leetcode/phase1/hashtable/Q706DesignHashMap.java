@@ -17,7 +17,7 @@ public class Q706DesignHashMap {
     }
 
     public void put(int key, int value) {
-        int idx = key % SIZE;
+        int idx = Math.abs(key % SIZE);
         if (buckets[idx] == null) { buckets[idx] = new int[][]{{key, value}}; return; }
         for (int[] pair : buckets[idx]) {
             if (pair[0] == key) { pair[1] = value; return; }
@@ -30,14 +30,14 @@ public class Q706DesignHashMap {
     }
 
     public int get(int key) {
-        int idx = key % SIZE;
+        int idx = Math.abs(key % SIZE);
         if (buckets[idx] == null) return -1;
         for (int[] pair : buckets[idx]) if (pair[0] == key) return pair[1];
         return -1;
     }
 
     public void remove(int key) {
-        int idx = key % SIZE;
+        int idx = Math.abs(key % SIZE);
         if (buckets[idx] == null) return;
         int pos = -1;
         for (int i = 0; i < buckets[idx].length; i++) {

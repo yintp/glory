@@ -17,7 +17,7 @@ public class Q705DesignHashSet {
     }
 
     public void add(int key) {
-        int idx = key % SIZE;
+        int idx = Math.abs(key % SIZE);
         if (buckets[idx] == null) { buckets[idx] = new int[]{key}; return; }
         if (contains(key)) return;
         int[] old = buckets[idx];
@@ -28,7 +28,7 @@ public class Q705DesignHashSet {
     }
 
     public void remove(int key) {
-        int idx = key % SIZE;
+        int idx = Math.abs(key % SIZE);
         if (buckets[idx] == null) return;
         int pos = -1;
         for (int i = 0; i < buckets[idx].length; i++) {
@@ -43,7 +43,7 @@ public class Q705DesignHashSet {
     }
 
     public boolean contains(int key) {
-        int idx = key % SIZE;
+        int idx = Math.abs(key % SIZE);
         if (buckets[idx] == null) return false;
         for (int v : buckets[idx]) if (v == key) return true;
         return false;

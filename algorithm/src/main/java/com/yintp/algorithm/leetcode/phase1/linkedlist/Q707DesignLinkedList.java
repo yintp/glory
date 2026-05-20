@@ -6,7 +6,7 @@ package com.yintp.algorithm.leetcode.phase1.linkedlist;
  *
  * 实现 get/addAtHead/addAtTail/addAtIndex/deleteAtIndex，可选单链表或双链表。
  *
- * 思路：复用 MyLinkedList 的双向链表实现（虚拟头尾节点）
+ * 思路：双向链表 + 虚拟头尾节点（与 MyLinkedList 实现相同）
  */
 public class Q707DesignLinkedList {
     private static class Node {
