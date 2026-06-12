@@ -10,6 +10,9 @@ target/
 *.iml
 *.ipr
 
+# vs code 
+.vscode
+
 # gradle
 .gradle/
 !gradle/wrapper/gradle-wrapper.jar
