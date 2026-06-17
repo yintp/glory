@@ -14,6 +14,6 @@ public class Q238ProductExceptSelfTest {
 
     @Test
     public void testWithZero() {
-        Assert.assertArrayEquals(new int[]{0, 0, 9, 0}, solution.productExceptSelf(new int[]{-1, 1, 0, -3, 3}));
+        Assert.assertArrayEquals(new int[]{0, 0, 9, 0, 0}, solution.productExceptSelf(new int[]{-1, 1, 0, -3, 3}));
     }
 }

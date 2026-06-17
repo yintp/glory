@@ -12,7 +12,12 @@ package com.yintp.algorithm.leetcode.topic1;
  */
 public class Q53MaxSubArray {
     public int maxSubArray(int[] nums) {
-        // TODO: Kadane 算法
-        return 0;
+        int max = nums[0];
+        int current = nums[0];
+        for (int i = 1; i < nums.length; i++) {
+            current = Math.max(nums[i], current + nums[i]);
+            max = Math.max(max, current);
+        }
+        return max;
     }
 }
