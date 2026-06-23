@@ -10,9 +10,22 @@ package com.yintp.algorithm.leetcode.topic2;
  *
  * 思路: 滑动窗口 + HashMap 记录字符最近出现位置
  */
+import java.util.HashMap;
+import java.util.Map;
+
 public class Q3LengthOfLongestSubstring {
     public int lengthOfLongestSubstring(String s) {
-        // TODO: 滑动窗口
-        return 0;
+        Map<Character, Integer> window = new HashMap<>();
+        int left = 0, right = 0, maxLen = 0;
+        while (right < s.length()) {
+            char c = s.charAt(right++);
+            window.put(c, window.getOrDefault(c, 0) + 1);
+            while (window.get(c) > 1) {
+                char d = s.charAt(left++);
+                window.put(d, window.get(d) - 1);
+            }
+            maxLen = Math.max(maxLen, right - left);
+        }
+        return maxLen;
     }
 }

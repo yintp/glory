@@ -13,6 +13,14 @@ package com.yintp.algorithm.leetcode.topic2;
  */
 public class Q283MoveZeroes {
     public void moveZeroes(int[] nums) {
-        // TODO: 同向双指针
+        int slow = 0;
+        for (int fast = 0; fast < nums.length; fast++) {
+            if (nums[fast] != 0) {
+                nums[slow++] = nums[fast];
+            }
+        }
+        while (slow < nums.length) {
+            nums[slow++] = 0;
+        }
     }
 }

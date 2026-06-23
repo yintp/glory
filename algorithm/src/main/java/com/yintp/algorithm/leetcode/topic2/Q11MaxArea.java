@@ -12,7 +12,13 @@ package com.yintp.algorithm.leetcode.topic2;
  */
 public class Q11MaxArea {
     public int maxArea(int[] height) {
-        // TODO: 相向双指针，移动较矮的边
-        return 0;
+        int left = 0, right = height.length - 1, maxArea = 0;
+        while (left < right) {
+            int area = Math.min(height[left], height[right]) * (right - left);
+            maxArea = Math.max(maxArea, area);
+            if (height[left] < height[right]) left++;
+            else right--;
+        }
+        return maxArea;
     }
 }

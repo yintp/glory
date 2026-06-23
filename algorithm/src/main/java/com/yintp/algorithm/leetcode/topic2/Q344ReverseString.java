@@ -12,6 +12,13 @@ package com.yintp.algorithm.leetcode.topic2;
  */
 public class Q344ReverseString {
     public void reverseString(char[] s) {
-        // TODO: 相向双指针交换
+        int left = 0, right = s.length - 1;
+        while (left < right) {
+            char tmp = s[left];
+            s[left] = s[right];
+            s[right] = tmp;
+            left++;
+            right--;
+        }
     }
 }
