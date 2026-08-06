@@ -16,6 +16,7 @@ Java 全栈技术学习仓库，涵盖算法、Java 核心、设计模式、框�
 | [framework](./framework) | Spring、MyBatis、Netty、Dubbo 等框架 |
 | [middleware](./middleware) | MySQL、Redis、Kafka、ES 等中间件 |
 | [ops](./ops) | 运维：Linux、K8s、Docker、计算机网络 |
+| [quantitative](./quantitative) | 量化交易策略（Python）与金融分析文档 |
 
 ---
 
@@ -119,3 +120,13 @@ Java 全栈技术学习仓库，涵盖算法、Java 核心、设计模式、框�
 - K8s
 - Docker
 - 计算机网络
+
+---
+
+## quantitative
+
+量化与金融分析模块，包含：
+
+- 机构级 DCF 估值提示词模板（Markdown，CFA 级专业分析框架）
+
+详见 [quantitative/README.md](./quantitative/README.md)

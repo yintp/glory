@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
 ## README 自动更新规则
 
 **每次新增或修改任何模块内容时，必须同步更新：**
@@ -13,9 +15,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## 语言要求
+
+所有输出产物（代码注释、文档、提交说明、PR/Issue 描述、接口说明等）**必须使用中文撰写**，与用户交流也一律用中文。
+
+---
+
 ## 项目构建与测试
 
-各模块独立使用 Maven 管理，无根级 `pom.xml`。以下命令在各模块目录下执行：
+各模块独立使用 Maven 管理（如有），无根级 `pom.xml`。以下命令在各模块目录下执行：
 
 ```bash
 # 构建
@@ -33,8 +41,6 @@ mvn test -Dtest=ClassName#methodName
 
 Java 版本：1.8（JDK 8），编码：UTF-8，测试框架：JUnit 4.11。
 
-Python 量化模块（`quantitative/`）直接运行：`python helloword.py`
-
 ---
 
 ## 代码架构
@@ -46,10 +52,10 @@ glory/
 ├── algorithm/          LeetCode 刷题（Java，Maven）
 ├── design-pattern/     23 种设计模式（Java，Maven）
 ├── java-core/          14 个 Java 核心技术子模块（Java，Maven）
-├── framework/          框架学习：Jackson / Spring / Hibernate Validator
+├── framework/          框架学习：Jackson / Spring / Hibernate Validator（Java，Maven）
 ├── middleware/         文档模块（MySQL、Redis、Kafka 等）
 ├── ops/                文档模块（Linux、K8s、Docker 等）
-└── quantitative/       量化交易策略（Python）
+└── quantitative/       量化交易
 ```
 
 ### 包命名约定
