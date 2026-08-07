@@ -79,7 +79,7 @@ MAC（Media Access Control）地址是网卡的物理地址，长度 **48 位（
 
 | 字段 | 长度 | 作用 |
 |------|------|------|
-| 前导码 Preamble | 7 字节 | `0x55` 交替位模式，让接收方时钟同步（物理层） |
+| 前导码 Preamble | 7 字节 | `0xAA`（`10101010`）交替位模式，让接收方时钟同步（物理层） |
 | 帧起始定界符 SFD | 1 字节 | `0xD5`，标志帧开始 |
 | 目的 MAC | 6 字节 | 接收方 MAC，广播为 `FF:FF:FF:FF:FF:FF` |
 | 源 MAC | 6 字节 | 发送方 MAC |
@@ -145,7 +145,7 @@ CSMA/CD（Carrier Sense Multiple Access with Collision Detection，载波侦听�
 
 **最小帧长 64 字节的由来**：
 
-CSMA/CD 要求"发完前能检测到碰撞"。10Mb/s 以太网时隙时间 51.2μs，对应 64 字节（51.2μs × 10Mb/s ÷ 8 = 64B）。若帧 < 64B，发送方可能已发完才收到碰撞信号，无法重发。故不足 46B 数据需填充到 46B，加 18B 首尾 = 64B。
+CSMA/CD 要求"发完前能检测到碰撞"。10Mb/s 以太网时隙时间 51.2μs，对应 64 字节（51.2μs × 10Mb/s ÷ 8 = 64B）。若帧 < 64B，发送方可能已发完才收到碰撞信号，无法重发。故不足 46B 数据需填充到 46B，加 18B 首尾（目的 MAC 6B + 源 MAC 6B + 类型 2B + FCS 4B）= 64B。
 
 > **CSMA/CD 已基本退场**：现代以太网用交换机（Switch）替代集线器（Hub），每端口是独立冲突域（点对点全双工），不存在碰撞，CSMA/CD 仅保留兼容性。千兆及以上以太网物理层强制全双工，不再支持 CSMA/CD。但"冲突域"与"广播域"概念仍是面试基础。
 
@@ -180,45 +180,34 @@ ARP（Address Resolution Protocol，地址解析协议，RFC 826）解决"已知
 
 场景：主机 A（IP=192.168.1.10）要和主机 B（IP=192.168.1.20）通信，A 不知 B 的 MAC。
 
-```
 步骤1: A 查 ARP 缓存，无 192.168.1.20 的记录
 
-步骤2: A 构造 ARP 请求
-  ┌─────────────────────────────────────┐
-  │ 以太网帧首部                          │
-  │   目的 MAC = FF:FF:FF:FF:FF:FF（广播）│
-  │   源 MAC     = A_MAC                 │
-  │ ARP 报文                              │
-  │   操作类型  = 1（请求）               │
-  │   发送方 IP = 192.168.1.10           │
-  │   发送方 MAC= A_MAC                   │
-  │   目标 IP  = 192.168.1.20            │
-  │   目标 MAC = 00:00:00:00:00:00（未知）│
-  └─────────────────────────────────────┘
-  广播到整个网段（交换机从所有端口转发）
+步骤2-6 的交互时序如下：
 
-步骤3: 网段内所有主机收到 ARP 请求
-  - 每台主机检查"目标 IP 是不是我"
-  - 是 → 回应；否 → 静默丢弃
-
-步骤4: B 匹配到目标 IP，构造 ARP 应答
-  ┌─────────────────────────────────────┐
-  │ 以太网帧首部                          │
-  │   目的 MAC = A_MAC（单播，非广播）    │
-  │   源 MAC     = B_MAC                 │
-  │ ARP 报文                              │
-  │   操作类型  = 2（应答）               │
-  │   发送方 IP = 192.168.1.20           │
-  │   发送方 MAC= B_MAC                   │
-  │   目标 IP  = 192.168.1.10            │
-  │   目标 MAC = A_MAC                   │
-  └─────────────────────────────────────┘
-  单播回 A
-
-步骤5: A 收到应答，更新 ARP 缓存
-  192.168.1.20 → B_MAC（缓存 2-20 分钟）
-
-步骤6: A 用 B_MAC 封装以太网帧，发 IP 数据报
+```mermaid
+sequenceDiagram
+    participant A as 主机A<br/>192.168.1.10 / A_MAC
+    participant S as 交换机
+    participant B as 主机B<br/>192.168.1.20 / B_MAC
+    participant O as 网段内其他主机
+    Note over A: 查 ARP 缓存未命中
+    Note over A,S: ===== 步骤2: A 构造 ARP 请求 =====
+    A->>S: 以太网帧: 目的MAC=FF:FF:FF:FF:FF:FF(广播)<br/>ARP: op=1(请求), 发送方IP=192.168.1.10, 发送方MAC=A_MAC<br/>目标IP=192.168.1.20, 目标MAC=00:00:00:00:00:00(未知)
+    Note over S: 从所有端口泛洪广播帧
+    S->>B: 广播帧到达 B
+    S->>O: 广播帧到达其他主机
+    Note over O: 检查目标IP≠自己, 静默丢弃
+    Note over B: 匹配目标IP=自己
+    Note over B,S: ===== 步骤4: B 构造 ARP 应答 =====
+    Note over B: 顺手学习 A_IP→A_MAC (被动学习)
+    B->>S: 以太网帧: 目的MAC=A_MAC(单播)<br/>ARP: op=2(应答), 发送方IP=192.168.1.20, 发送方MAC=B_MAC<br/>目标IP=192.168.1.10, 目标MAC=A_MAC
+    Note over S: 按 MAC 表从 A 所在端口单播转发
+    S->>A: ARP 应答到达 A
+    Note over A: ===== 步骤5: 更新 ARP 缓存 =====
+    Note over A: 192.168.1.20 → B_MAC (缓存2-20分钟)
+    Note over A,B: ===== 步骤6: A 用 B_MAC 封装以太网帧, 发 IP 数据报 =====
+    A->>S: 以太网帧: 目的MAC=B_MAC, 载荷=IP数据报
+    S->>B: 数据帧到达 B
 ```
 
 **关键点**：
@@ -344,15 +333,16 @@ ARP 是"无状态"协议——任何主机收到 ARP 应答（即使是没发请
 
 **DAI 工作流程**：
 
+```mermaid
+flowchart TD
+    Start([ARP 请求/应答<br/>从 untrusted 端口进入]) --> Check{ARP 发送方 IP/MAC<br/>是否在 DHCP Snooping<br/>绑定表中?}
+    Check -- 合法, 匹配 --> Fwd[转发 ARP 帧]
+    Check -- 非法, 不匹配<br/>如伪造网关 MAC --> Drop[丢弃 ARP 帧<br/>并产生 log 告警]
+    Fwd --> Done
+    Drop --> Done([后续 ARP 学习/转发正常])
 ```
-1. 交换机开 DHCP Snooping：untrusted 端口的 DHCP Offer 丢弃，记录绑定表
-   绑定表: IP=192.168.1.10, MAC=aa:bb, Port=Gi1/1, VLAN=10
 
-2. 交换机开 DAI：untrusted 端口的 ARP 请求/应答上送检查
-   检查 ARP 的"发送方 IP/MAC"是否在绑定表里
-
-3. 合法 ARP → 转发；非法 ARP（伪造网关）→ 丢弃并 log
-```
+**前置条件与细节**：①交换机先开 DHCP Snooping，在 untrusted 端口丢弃非法 DHCP Offer，并记录绑定表（IP=192.168.1.10, MAC=aa:bb, Port=Gi1/1, VLAN=10）；②开启 DAI 后，untrusted 端口进来的 ARP 请求/应答上送检查其"发送方 IP/MAC"是否在绑定表中；③合法则转发，非法（伪造网关）则丢弃并告警；trusted 端口（如接其他交换机的 Trunk）默认不查。
 
 > **云原生场景**：容器网段的 ARP 欺骗更危险（Pod 密度高、租户混部）。K8s 用 NetworkPolicy + CNI（如 Calico 的 eBPF 模式过滤 ARP）做隔离。详见 §4.3。
 
@@ -393,7 +383,7 @@ VLAN（Virtual LAN，虚拟局域网，IEEE 802.1Q）在一台物理交换机上
 | DEI | 1 | Drop Eligible Indicator，可丢弃标识 |
 | VID | 12 | VLAN ID，范围 0-4095，可用 1-4094（0/4095 保留） |
 
-> **Native VLAN**：Trunk 链路上，属于 Native VLAN（默认 VLAN 1）的帧**不打 Tag**，以兼容老式设备。其他 VLAN 的帧都带 Tag。Native VLAN 在两端必须一致，否则会出现"VLAN 跳跃"漏洞。
+> **Native VLAN**：Trunk 链路上，属于 Native VLAN（默认 VLAN 1）的帧**不打 Tag**，以兼容老式设备。其他 VLAN 的帧都带 Tag。Native VLAN 在两端必须一致，否则会出现"VLAN 跳跃"漏洞——攻击者从 Native VLAN 发送双标签帧（外层标签=Native VLAN，内层标签=目标 VLAN），Trunk 入口剥离外层 Native 标签后，帧带内层标签穿越 Trunk，出口剥离内层标签后误入目标 VLAN，实现跨 VLAN 注入。防御：把 Native VLAN 设为未使用的 VLAN 并显式打 Tag（`vlan dot1q tag native`）。
 
 #### 2.3.3 Access 与 Trunk 端口
 
@@ -457,25 +447,40 @@ A→B: A 发到 eth0.10 网关 → 路由器解封装查路由 → 从 eth0.20 �
 
 **三步建树**：
 
-**步骤1：选举根桥（Root Bridge）**
+```mermaid
+flowchart TD
+    Start([所有交换机启动, 互发 BPDU]) --> S1
+    
+    subgraph S1 [步骤1: 选举根桥 Root Bridge]
+        S1a[每台交换机有 Bridge ID<br/>= 优先级2字节 + MAC6字节, 默认32768]
+        S1b[比较所有 Bridge ID]
+        S1c[Bridge ID 最小者当选根桥<br/>优先级相同则比 MAC, 小者为根]
+    end
+    
+    S1 --> S2
+    
+    subgraph S2 [步骤2: 选举根端口 Root Port]
+        S2a[每台非根交换机选一个<br/>离根桥最近的端口为 Root Port]
+        S2b[度量: Root Path Cost<br/>累计路径开销, 带宽越大开销越小]
+        S2c[Cost 相同时比上游 Bridge ID, Port ID]
+    end
+    
+    S2 --> S3
+    
+    subgraph S3 [步骤3: 选举指定端口 Designated Port]
+        S3a[每条链路段选一个端口为 Designated Port<br/>负责向该链路转发根桥方向流量]
+        S3b[根桥所有端口都是 Designated]
+        S3c[剩余端口为阻塞端口 Blocked Port<br/>不转发数据帧, 只收 BPDU]
+    end
+    
+    S3 --> Result([阻塞端口切断环路, 形成无环树])
+```
 
-- 每台交换机有 Bridge ID = 优先级（2 字节）+ MAC（6 字节），优先级默认 32768。
-- Bridge ID **最小**者为根桥。
-- 优先级相同时比 MAC，小的为根。
+**选举细节**：
 
-**步骤2：选举根端口（Root Port）**
-
-- 每台非根交换机选**一个**离根桥最近的端口为 Root Port。
-- 度量是 Root Path Cost（累计路径开销，带宽越大开销越小）。
-- Cost 相同时比上游 Bridge ID、Port ID。
-
-**步骤3：选举指定端口（Designated Port）**
-
-- 每条链路（每段）选一个端口为 Designated Port，负责向该链路转发根桥方向流量。
-- 根桥的所有端口都是 Designated。
-- 剩余端口为**阻塞端口（Blocked Port）**，不转发数据帧，只收 BPDU。
-
-**结果**：阻塞端口切断环路，形成无环树。
+- **步骤1（根桥）**：Bridge ID = 优先级（2 字节）+ MAC（6 字节），默认优先级 32768；Bridge ID **最小**者为根桥；优先级相同时比 MAC，小的为根。
+- **步骤2（根端口）**：每台非根交换机选**一个**离根桥最近的端口为 Root Port；度量是 Root Path Cost（累计路径开销，带宽越大开销越小）；Cost 相同时比上游 Bridge ID、Port ID。
+- **步骤3（指定端口）**：每条链路段选一个端口为 Designated Port，负责向该链路转发根桥方向流量；根桥的所有端口都是 Designated；剩余端口为**阻塞端口（Blocked Port）**，不转发数据帧，只收 BPDU。
 
 **STP 端口状态**：
 
@@ -800,27 +805,17 @@ arp who-has 192.168.1.1 tell 0.0.0.0   ← 攻击者主动宣告
 
 传统数据中心网络（CDCN，Classic Data Center Network）沿用**核心-汇聚-接入**三层架构，源于企业网：
 
-```
-                    ┌───────────────────┐
-                    │   核心层 Core     │  ←─ 互联网出口、跨区间互联
-                    │  L3 交换/路由器   │
-                    └─────────┬─────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              │               │               │
-        ┌─────┴─────┐   ┌─────┴─────┐   ┌─────┴─────┐
-        │ 汇聚层 Agg│   │ 汇聚层 Agg│   │ 汇聚层 Agg│  ←─ VLAN 网关、防火墙、LB
-        │  L3 交换机 │   │  L3 交换机 │   │  L3 交换机 │
-        └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
-              │               │               │
-         ┌────┴────┐     ┌────┴────┐     ┌────┴────┐
-         │ 接入层  │     │ 接入层  │     │ 接入层  │  ←─ 接服务器、TOR
-         │ L2 交换 │     │ L2 交换 │     │ L2 交换 │
-         └────┬────┘     └────┬────┘     └────┬────┘
-              │               │               │
-         ┌────┴────┐     ┌────┴────┐     ┌────┴────┐
-         │服务器机架│     │服务器机架│     │服务器机架│
-         └─────────┘     └─────────┘     └─────────┘
+```mermaid
+flowchart TB
+    C[核心层 Core<br/>L3 交换/路由器<br/>互联网出口、跨区间互联] --> A1[汇聚层 Agg1<br/>L3 交换机<br/>VLAN 网关/防火墙/LB]
+    C --> A2[汇聚层 Agg2]
+    C --> A3[汇聚层 Agg3]
+    A1 --> R1[接入层1<br/>L2 交换机<br/>接服务器/TOR]
+    A2 --> R2[接入层2]
+    A3 --> R3[接入层3]
+    R1 --> S1[服务器机架1]
+    R2 --> S2[服务器机架2]
+    R3 --> S3[服务器机架3]
 ```
 
 **特点**：
@@ -834,21 +829,42 @@ arp who-has 192.168.1.1 tell 0.0.0.0   ← 攻击者主动宣告
 
 ### 5.2 Spine-Leaf 架构
 
-现代数据中心（Web 2.0、云原生）东西向流量（服务器间）主导，采用 **Spine-Leaf（叶脊）** 全互联拓扑：
+现代数据中心（Web 2.0、云原生）东西向流量（服务器间）主导，采用 **Spine-Leaf（叶脊）** 全互联拓扑。下图为 Spine-Leaf 与传统三层拓扑的对比：
 
+```mermaid
+flowchart TB
+    subgraph TL["传统三层架构"]
+        direction TB
+        TLC[核心层 Core<br/>L3 交换/路由器<br/>互联网出口] --> TLA1[汇聚层 Agg1<br/>L3 交换机<br/>VLAN网关/防火墙]
+        TLC --> TLA2[汇聚层 Agg2]
+        TLC --> TLA3[汇聚层 Agg3]
+        TLA1 --> TLR1[接入层1<br/>L2 交换]
+        TLA2 --> TLR2[接入层2]
+        TLA3 --> TLR3[接入层3]
+        TLR1 --> TLS1[服务器机架1]
+        TLR2 --> TLS2[服务器机架2]
+        TLR3 --> TLS3[服务器机架3]
+    end
+    subgraph SL["Spine-Leaf 架构"]
+        direction TB
+        SLS1[Spine 1<br/>L3 交换机] --> SLL1[Leaf 1<br/>L3 交换机]
+        SLS1 --> SLL2[Leaf 2]
+        SLS1 --> SLL3[Leaf 3]
+        SLS2[Spine 2<br/>L3 交换机] --> SLL1
+        SLS2 --> SLL2
+        SLS2 --> SLL3
+        SLS3[Spine 3<br/>L3 交换机] --> SLL1
+        SLS3 --> SLL2
+        SLS3 --> SLL3
+        SLL1 --> SLSR1[机架1]
+        SLL2 --> SLSR2[机架2]
+        SLL3 --> SLSR3[机架3]
+    end
+    Note -. East-West 流量 .- TL
+    Note -. East-West 一跳直达 .- SL
 ```
-       ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
-       │Spine 1 │ │Spine 2 │ │Spine 3 │ │Spine 4 │  ←─ L3 交换机，全互联 Leaf
-       └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘
-           │          │          │          │
-   ┌───────┼──────────┼──────────┼──────────┼───────┐
-   │       │          │          │          │       │
-┌──┴──┐ ┌──┴──┐ ┌───┴─┐ ┌──┴──┐ ┌──┴──┐ ┌───┴─┐
-│Leaf1│ │Leaf2│ │Leaf3│ │Leaf4│ │Leaf5│ │Leaf6│     ←─ L3 交换机，接服务器机架
-└──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘
-   │       │      │      │      │      │
-  机架1   机架2   机架3  机架4  机架5  机架6
-```
+
+> **图示要点**：传统三层（左）East-West 流量须绕行汇聚层、且 STP 阻塞冗余链路导致约 50% 带宽闲置；Spine-Leaf（右）每台 Leaf 与所有 Spine 全互联，ECMP 等价多路径负载均衡，East-West 经 Spine 一跳直达任意 Leaf，所有链路 100% 利用。
 
 **核心特征**：
 
@@ -916,15 +932,22 @@ SDN（Software-Defined Networking）把网络的控制面（决策）与数据�
 
 **架构**：
 
+```mermaid
+flowchart TB
+    subgraph APP["应用层（北向 API）"]
+        A1[网络应用<br/>负载均衡 / 安全策略 / 监控]
+    end
+    subgraph CTRL["控制层（SDN Controller）"]
+        C1[集中决策, 下发流表<br/>如 ONOS / ODL / Cilium]
+    end
+    subgraph DATA["数据层（南向 OpenFlow）"]
+        D1[OVS / 白牌交换机<br/>按流表转发]
+    end
+    APP -- 北向 API --> CTRL
+    CTRL -- 南向 OpenFlow --> DATA
 ```
-┌──────────────────────────┐
-│  应用层（北向 API）       │  ←─ 网络应用：负载均衡、安全策略、监控
-├──────────────────────────┤
-│  控制层（SDN Controller） │  ←─ 集中决策，下发流表；如 ONOS、ODL、Cilium
-├──────────────────────────┤
-│  数据层（南向 OpenFlow）  │  ←─ OVS、白牌交换机，按流表转发
-└──────────────────────────┘
-```
+
+> 三层职责：应用层定义"做什么"，控制层翻译为流表，数据层只管"按流表转发"。这种解耦让网络可编程，无需逐台设备 CLI 配置。
 
 **与传统对比**：
 
