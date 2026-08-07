@@ -88,7 +88,7 @@ IPv4 地址 32 位，传统分类按前几位区分网络号与主机号：
 
 > **为什么每个网段主机数要减 2**：主机号全 0 = 网络地址（如 192.168.1.0 表示"本网络"），主机号全 1 = 广播地址（如 192.168.1.255 表示"本网所有主机"），这两个不能分配给主机。
 
-> **分类地址已过时**：现代网络统一用 CIDR（无类别域间路由，RFC 4632）取代 A/B/C 分类，但分类地址仍是面试基础概念，且在路由表聚合、私网规划中常用。D 类组播详见 [路由/ICMP（规划中）](./routing.md)。
+> **分类地址已过时**：现代网络统一用 CIDR（无类别域间路由，RFC 4632）取代 A/B/C 分类，但分类地址仍是面试基础概念，且在路由表聚合、私网规划中常用。D 类组播详见 [路由/ICMP](./routing.md)。
 
 ---
 
@@ -392,7 +392,7 @@ sequenceDiagram
 
 **防环路原理**：若网络中存在路由环路（A 的下一跳是 B，B 的下一跳是 A），无 TTL 的包会无限循环，耗尽链路带宽。TTL 保证每个包最多经过 255 跳必被丢弃，环路包在 TTL 耗尽时自动消亡，网络自愈。
 
-**Traceroute 利用 TTL**：发送方发 TTL=1 的包，第一跳路由器收到后 TTL=0 丢包并回 ICMP Time Exceeded，发送方据此获知第一跳 IP；再发 TTL=2 的包，第二跳丢包回 ICMP，依次探测整条路径。详见 [路由/ICMP（规划中）](./routing.md)。
+**Traceroute 利用 TTL**：发送方发 TTL=1 的包，第一跳路由器收到后 TTL=0 丢包并回 ICMP Time Exceeded，发送方据此获知第一跳 IP；再发 TTL=2 的包，第二跳丢包回 ICMP，依次探测整条路径。详见 [路由/ICMP](./routing.md)。
 
 **追问**：为什么 Linux 默认 64 而不是 255？
 
@@ -703,7 +703,7 @@ spec:
 - RFC 791（IPv4 规范）、RFC 8200（IPv6 规范）、RFC 4291（IPv6 地址架构）、RFC 4632（CIDR）、RFC 2131（DHCP）、RFC 4861（IPv6 ND，含 SLAAC）、RFC 1918（私网地址）
 - RFC 1191（PMTU Discovery）、RFC 8201（IPv6 PMTU）、RFC 3021（/31 点对点链路）、RFC 6724（IPv6 地址选择）、RFC 7050（IPv6 SLAAC 通用前缀）
 - Linux 内核文档：`Documentation/networking/ip-sysctl.txt`、`ip(8)`/`ifconfig(8)`/`route(8)` man 手册
-- 延伸阅读：[NAT](./nat.md)（NAT 与 IPv6 无 NAT 的关系）、[路由/ICMP（规划中）](./routing.md)（TTL 与 Traceroute、ICMP 与 PMTUD）、[TCP 可靠性](../02-transport/tcp-reliability.md)（MSS 与 PMTUD 的配合）、[TCP 连接](../02-transport/tcp-connection.md)（四元组与端口）
+- 延伸阅读：[NAT](./nat.md)（NAT 与 IPv6 无 NAT 的关系）、[路由/ICMP](./routing.md)（TTL 与 Traceroute、ICMP 与 PMTUD）、[TCP 可靠性](../02-transport/tcp-reliability.md)（MSS 与 PMTUD 的配合）、[TCP 连接](../02-transport/tcp-connection.md)（四元组与端口）
 - 仓库内关联：`java-core/rmi`（基于 IP+端口的服务发现）、`framework/spring-framework`（RestTemplate 与 InetAddress 解析）、[DNS](../01-application/dns.md)（域名→IP 解析）、[HTTP](../01-application/http.md)（基于 IP+端口的请求）
 
 > **返回**：[网络知识图谱](../README.md)
