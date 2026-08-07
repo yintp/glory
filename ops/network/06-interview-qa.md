@@ -38,7 +38,7 @@
 
 **答**：TIME_WAIT 出现在主动关闭连接的一方，所以「过多」通常说明本端频繁主动断开短连接（如 HTTP/1.1 短连接、RPC 重连）。解决方向：优先用长连接 + 连接池减少主动关闭；其次调大端口范围 `ip_local_port_range`；最后才考虑 `tcp_tw_reuse`（开启复用），切勿开 `tcp_tw_recycle`（已在 4.12 移除，且 NAT 环境会踩时间戳坑）。
 
-**关联**：→ [TCP 高频追问 · TIME_WAIT 过多怎么办](./02-transport/tcp-high-frequency.md#23-time-wait-过多怎么办)
+**关联**：→ [TCP 高频追问 · TIME_WAIT 过多怎么办](./02-transport/tcp-high-frequency.md)
 
 ### Q5: 为什么 TIME_WAIT 要等 2MSL？🔗
 
@@ -50,7 +50,7 @@
 
 **答**：它开启后会基于 TCP 时间戳「复用」TIME_WAIT 连接，并启用 per-host 的 PAWS 检查：对同一对端 IP，若新连接的时间戳小于已记录值就丢弃。在 NAT 环境下，多个内网主机共享同一公网出口 IP，时间戳稍乱就会导致后建立的连接被静默丢弃，表现为「偶发连不上」。Linux 4.12 已彻底移除该选项，生产严禁使用。
 
-**关联**：→ [TCP 高频追问 · TIME_WAIT 过多怎么办](./02-transport/tcp-high-frequency.md#23-time-wait-过多怎么办)
+**关联**：→ [TCP 高频追问 · TIME_WAIT 过多怎么办](./02-transport/tcp-high-frequency.md)
 
 ### Q7: 半连接队列和全连接队列满了会怎样？🔗
 
@@ -138,7 +138,7 @@
 
 **答**：Cookie 是浏览器存储机制（键值对，随请求自动带，有域/路径/Secure 等属性）；Session 是服务端状态，用 Cookie 里的 SessionID 关联；Token 是无状态凭证（服务端不存，靠签名验证），适合分布式；JWT 是 Token 的标准格式（Header.Payload.Signature），可自包含用户信息但体积大且无法主动失效。选型：单体用 Session，分布式/移动端用 Token，跨域用 JWT。
 
-**关联**：→ [HTTP 协议全解 · Cookie/Session/Token/JWT 对比](./01-application/http.md#27-cookie--session--token--jwt-对比)
+**关联**：→ [HTTP 协议全解 · Cookie/Session/Token/JWT 对比](./01-application/http.md)
 
 ### Q21: TLS 1.2 为什么 4 个 RTT？TLS 1.3 怎么优化到 1-RTT？🔗
 
@@ -242,7 +242,7 @@
 
 **答**：IP 头部的 TTL 字段每经过一台路由器减 1，减到 0 时丢弃并回 ICMP Time Exceeded。这保证即使路由表环路导致报文无限绕圈，也会因 TTL 耗尽被丢弃，不会永久占用带宽。Traceroute 正是利用 TTL 递增触发沿途路由器回 ICMP 超时报文来绘制路径。
 
-**关联**：→ [路由与 ICMP · Traceroute 原理](./03-network/routing.md#24-traceroute-原理ttl-递增--icmp-超时)
+**关联**：→ [路由与 ICMP · Traceroute 原理](./03-network/routing.md)
 
 ### Q37: NAT 四种类型的区别？哪种最难穿透？🔗
 
@@ -260,7 +260,7 @@
 
 **答**：发送 TTL=1,2,3… 递增的探测包，沿途第 N 跳路由器因 TTL 减到 0 回 ICMP Time Exceeded，由此逐跳记录路径，直到目标回端口不可达/回显应答。默认用 UDP 高端口（Linux）或 ICMP（Windows ping 模式），UDP 模式可区分中间设备与目标；TCP 模式（`-T`）可绕过 ICMP 被限速的防火墙。多协议是为了适应不同网络策略。
 
-**关联**：→ [路由与 ICMP · Traceroute 原理](./03-network/routing.md#24-traceroute-原理ttl-递增--icmp-超时)
+**关联**：→ [路由与 ICMP · Traceroute 原理](./03-network/routing.md)
 
 ### Q40: OSPF 和 BGP 区别？分别用在什么场景？
 
@@ -394,7 +394,6 @@ mindmap
     NAT 穿透链
       Q37 四种类型
       Q38 STUN/TURN/ICE
-      Q15 QUIC 替代
     系统设计全链路
       Q50 输入URL到展示
       Q41 短链
