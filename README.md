@@ -119,7 +119,9 @@ Java 全栈技术学习仓库，涵盖算法、Java 核心、设计模式、框�
 - Linux
 - K8s
 - Docker
-- 计算机网络
+- 计算机网络（按 OSI 分层的 17 份面试知识文档，含系统设计案例）
+
+详见 [ops/network/README.md](./ops/network/README.md)
 
 ---
 
@@ -128,5 +130,6 @@ Java 全栈技术学习仓库，涵盖算法、Java 核心、设计模式、框�
 量化与金融分析模块，包含：
 
 - 机构级 DCF 估值提示词模板（Markdown，CFA 级专业分析框架）
+- 长鑫存储（CXMT）产业链梳理（六大环节 + 订单规模 + 重点公司专题）
 
 详见 [quantitative/README.md](./quantitative/README.md)
