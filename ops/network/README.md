@@ -32,7 +32,7 @@ mindmap
     传输层
       TCP 连接
         三次握手/四次挥手
-        11 状态状态机
+        11 状态完整状态机
       TCP 可靠性
         重传与滑动窗口
         粘包拆包
@@ -58,7 +58,7 @@ mindmap
         Traceroute 原理
     链路层
       以太网/ARP
-        MAC/帧格式/CSMA-CD
+        MAC/帧格式/CSMA/CD
         VLAN/STP/ARP 欺骗
     系统设计
       经典案例
