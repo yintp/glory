@@ -207,9 +207,11 @@ Istio 是目前最主流的 Service Mesh 实现，采用经典的**控制面 + �
 
 #### 2.2.1 整体架构
 
+> **说明**：1.5 之后 Pilot、Citadel、Galley 已合并为单一组件 **Istiod**，下图中三者仅为 Istiod 内部职责划分，不再是独立部署的进程。
+
 ```mermaid
 flowchart TB
-    subgraph 控制面["控制面（Istiod）"]
+    subgraph 控制面["控制面（Istiod，内部职责）"]
         Pilot[Pilot<br/>路由/流量治理/服务发现]
         Citadel[Citadel<br/>证书与 mTLS 身份]
         Galley[Galley<br/>配置校验与分发]
@@ -325,11 +327,11 @@ CNI 只定义接口，实现由插件完成。主流插件：
 
 #### 2.3.3 Pod 间通信流程
 
-**同节点两个 Pod 通信**（同 host，不同 network namespace）：
+**同节点两个 Pod 通信**（同 host，不同 network namespace，以 Flannel VXLAN/IPAM 为例）：
 
 ```mermaid
 flowchart LR
-    PodA[Pod A<br/>eth0 10.244.1.5] -->|veth pair| Bridge[cni0 网桥<br/>10.244.1.1/24]
+    PodA[Pod A<br/>eth0 10.244.1.5] -->|veth pair| Bridge[cni0 网桥<br/>10.244.1.1/24<br/>（Flannel）]
     Bridge -->|veth pair| PodB[Pod B<br/>eth0 10.244.1.6]
 ```
 
@@ -748,6 +750,8 @@ spec:
 
 ```bash
 # 1. 安装 Cilium（要求内核 ≥ 5.4，建议 5.10+）
+#    注：cilium CLI 安装方式适用于快速体验；生产环境推荐 Helm values 安装，
+#    便于版本管理与参数复用：helm install cilium cilium/cilium -f values.yaml
 cilium install --version 1.15.0
 
 # 2. 启用 kube-proxy 替代（关键配置）
@@ -979,7 +983,7 @@ spec:
 
 #### 5.4.3 性能权衡与调优
 
-迁移后性能变化（实测）：
+迁移后性能变化（参考估算，非真实基准；典型场景的合理量级，用于体现权衡方向）：
 
 | 指标 | 迁移前（SDK） | 迁移后（Mesh） | 差异 |
 |------|--------------|----------------|------|
@@ -988,6 +992,8 @@ spec:
 | 吞吐 | 8w QPS | 7.5w QPS | -6% |
 | Pod 内存 | 1.2GB | 1.35GB | +150MB（sidecar） |
 | CPU | 2 核 | 2.2 核 | +10% |
+
+> **说明**：以上为典型场景的估算示意值，非真实基准测试结果。实际损耗取决于 sidecar 资源配额、连接池配置、链路长度，面试作答应以自测数据为准。
 
 **调优手段**：
 
