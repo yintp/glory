@@ -18,7 +18,7 @@ UDP（User Datagram Protocol，用户数据报协议，RFC 768）是与 TCP 并�
 | 不可靠 | 不保证到达、不保证顺序、不保证不重复 | TCP 靠序号/ACK/重传保证可靠 | 可靠性由应用自行实现（或不在意） |
 | 面向报文 | 保留应用层消息边界，一次 send = 一次 deliver | TCP 面向字节流，无边界 | 天然无粘包拆包问题 |
 
-**面向报文是 UDP 与 TCP 最本质的工程差异**：应用调用一次 `sendto(1000B)`，接收端对应一次 `recvfrom(1000B)` 拿到完整的 1000 字节（若该报文未丢失）。UDP 把应用交付的"数据报"作为一个整体交给 IP 层，IP 分片仅在 IP 层发生且重组对 UDP 透明。这使 UDP 天然适合"以消息为单位"的协议（DNS 查询、SNMP、RADIUS），而 TCP 需要应用层自行定界（长度前缀/分隔符，详见 [TCP 可靠性 §5.1](./tcp-reliability.md#51-netty-长度域拆包编码器)）。
+**面向报文是 UDP 与 TCP 最本质的工程差异**：应用调用一次 `sendto(1000B)`，接收端对应一次 `recvfrom(1000B)` 拿到完整的 1000 字节（若该报文未丢失）。UDP 把应用交付的"数据报"作为一个整体交给 IP 层，IP 分片仅在 IP 层发生且重组对 UDP 透明。这使 UDP 天然适合"以消息为单位"的协议（DNS 查询、SNMP、RADIUS），而 TCP 需要应用层自行定界（长度前缀/分隔符，详见 [TCP 可靠性机制 §4.1.3](./tcp-reliability.md)）。
 
 **UDP 的"不作为"恰恰是它的优势**：
 
@@ -72,7 +72,7 @@ QUIC（Quick UDP Internet Connections）是 Google 设计、IETF 标准化的传
 
 ### 1.4 KCP 的定位
 
-KCP 是开源的"在 UDP 之上实现可靠传输"的协议（C 语言实现，作者林伟），设计目标是**低延迟**，典型场景是游戏与实时音视频。它不是 IETF 标准，但在国内游戏/直播行业广泛使用。
+KCP 是开源的"在 UDP 之上实现可靠传输"的协议（C 语言实现，作者林伟，[skywind3000/kcp](https://github.com/skywind3000/kcp)），设计目标是**低延迟**，典型场景是游戏与实时音视频。它不是 IETF 标准，但在国内游戏/直播行业广泛使用。
 
 **一句话定位**：KCP = UDP + （ARQ 可靠传输）+ （FEC 前向纠错）+ （快速重传模式），用 10%-20% 的额外带宽换取 30%-40% 的延迟降低。
 
@@ -664,7 +664,7 @@ flowchart LR
 1. **延迟优先于可靠**：实时通话宁可丢几帧（画面短暂卡顿）也不要排队堆积（延迟膨胀导致"对不上口型"）。UDP 的"尽力交付"恰好匹配——丢了就算了，下一帧补上。
 2. **应用层精准控制**：WebRTC 在 RTP/RTCP 之上自实现 FEC、NACK、GCC，对"哪些帧重传、哪些跳过、码率怎么调"有细粒度控制。TCP 的重传与拥塞控制是内核黑盒，应用无法按帧粒度干预。
 3. **多路复用无阻塞**：WebRTC 一条 UDP 流承载音频、视频、数据通道，通道间独立。音频丢包不应阻塞视频交付（反之亦然），UDP 上各流独立，无 TCP 的字节流队头阻塞。
-4. **NAT 穿透友好**：UDP 的 STUN/TURN 穿透方案成熟（详见 [NAT §3](../03-network/nat.md)），TCP 穿透困难（需双方都能接受入站连接）。
+4. **NAT 穿透友好**：UDP 的 STUN/TURN 穿透方案成熟（详见 [NAT §3（规划中）](../03-network/nat.md)），TCP 穿透困难（需双方都能接受入站连接）。
 
 **方案落地**：
 
@@ -697,7 +697,7 @@ flowchart LR
 - KCP 开源实现：[skywind3000/kcp](https://github.com/skywind3000/kcp)（C 语言，含协议文档）、社区 Java 移植版
 - Linux 内核文档：`udp(7)` man 手册、`Documentation/networking/ip-sysctl.txt`（UDP 相关参数）
 - 延伸阅读：[TCP 连接管理](./tcp-connection.md)（TCP 握手与连接，对照 UDP 无连接）、[TCP 可靠性](./tcp-reliability.md)（TCP 字节流与粘包，对照 UDP 面向报文）、[TCP 拥塞控制](./tcp-congestion.md)（CUBIC/BBR，对照 UDP 无拥塞控制）、[TCP 高频追问](./tcp-high-frequency.md)
-- 跨层关联：[DNS](../01-application/dns.md)（UDP 典型场景）、[HTTP](../01-application/http.md)（HTTP/3 基于 QUIC）、[NAT](../03-network/nat.md)（UDP 的 STUN/TURN 穿透）
+- 跨层关联：[DNS](../01-application/dns.md)（UDP 典型场景）、[HTTP](../01-application/http.md)（HTTP/3 基于 QUIC）、[NAT（规划中）](../03-network/nat.md)（UDP 的 STUN/TURN 穿透）
 - 仓库内关联：`java-core/rmi`（Java 原生 RPC 用 TCP，对照 UDP 不可靠传输）、`framework/spring-framework`（REST/WebSocket 基于 TCP）、`java-core/stream`（Netty Pipeline 用函数式编排 UDP Handler）
 
 > **返回**：[网络知识图谱](../README.md)
