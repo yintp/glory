@@ -154,8 +154,8 @@ DNS 缓存分多级，每级都按记录的 TTL 决定缓存时长：
 
 | 缓存层 | 缓存主体 | 失效策略 | 备注 |
 |--------|---------|---------|------|
-| 浏览器 | Chrome host resolver | 讏记录 TTL（默认 60s~60min） | 内存中，关闭浏览器清空 |
-| OS | systemd-resolved / nscd / Windows DNS Client | 讏记录 TTL | 进程重启或手动 flush |
+| 浏览器 | Chrome host resolver | 按记录 TTL（默认 60s~60min） | 内存中，关闭浏览器清空 |
+| OS | systemd-resolved / nscd / Windows DNS Client | 按记录 TTL | 进程重启或手动 flush |
 | 路由器/家庭网关 | 部分家用路由器代理 DNS | 短 TTL | 部分路由不缓存 |
 | 本地递归解析器 | ISP / 公共 DNS | 严格按 TTL | 否定缓存由 SOA minimum 控制 |
 | 权威服务器 | — | 不缓存他人记录 | 是数据源头 |
