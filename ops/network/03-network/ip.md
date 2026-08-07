@@ -208,7 +208,7 @@ IPv6 地址 128 位（16 字节），写作 8 组 4 位十六进制，用冒号�
 
 IPv6 设计的核心动机是**地址耗尽**：IPv4 仅 2³² ≈ 43 亿地址，而 IPv6 有 2¹²⁸ ≈ 3.4×10³⁸，人均可分到数千个全球地址。
 
-**IPv4 用 NAT 的原因**：私网主机无公网 IP，靠 NAT 把多私网 IP 映射到一个公网 IP（详见 [NAT（规划中）](./nat.md)）。NAT 打破了端到端原则，导致 P2P 困难、应用层需 STUN/TURN 穿透、连接追踪表成为瓶颈。
+**IPv4 用 NAT 的原因**：私网主机无公网 IP，靠 NAT 把多私网 IP 映射到一个公网 IP（详见 [NAT](./nat.md)）。NAT 打破了端到端原则，导致 P2P 困难、应用层需 STUN/TURN 穿透、连接追踪表成为瓶颈。
 
 **IPv6 无需 NAT 的理由**：
 
@@ -703,7 +703,7 @@ spec:
 - RFC 791（IPv4 规范）、RFC 8200（IPv6 规范）、RFC 4291（IPv6 地址架构）、RFC 4632（CIDR）、RFC 2131（DHCP）、RFC 4861（IPv6 ND，含 SLAAC）、RFC 1918（私网地址）
 - RFC 1191（PMTU Discovery）、RFC 8201（IPv6 PMTU）、RFC 3021（/31 点对点链路）、RFC 6724（IPv6 地址选择）、RFC 7050（IPv6 SLAAC 通用前缀）
 - Linux 内核文档：`Documentation/networking/ip-sysctl.txt`、`ip(8)`/`ifconfig(8)`/`route(8)` man 手册
-- 延伸阅读：[NAT（规划中）](./nat.md)（NAT 与 IPv6 无 NAT 的关系）、[路由/ICMP（规划中）](./routing.md)（TTL 与 Traceroute、ICMP 与 PMTUD）、[TCP 可靠性](../02-transport/tcp-reliability.md)（MSS 与 PMTUD 的配合）、[TCP 连接](../02-transport/tcp-connection.md)（四元组与端口）
+- 延伸阅读：[NAT](./nat.md)（NAT 与 IPv6 无 NAT 的关系）、[路由/ICMP（规划中）](./routing.md)（TTL 与 Traceroute、ICMP 与 PMTUD）、[TCP 可靠性](../02-transport/tcp-reliability.md)（MSS 与 PMTUD 的配合）、[TCP 连接](../02-transport/tcp-connection.md)（四元组与端口）
 - 仓库内关联：`java-core/rmi`（基于 IP+端口的服务发现）、`framework/spring-framework`（RestTemplate 与 InetAddress 解析）、[DNS](../01-application/dns.md)（域名→IP 解析）、[HTTP](../01-application/http.md)（基于 IP+端口的请求）
 
 > **返回**：[网络知识图谱](../README.md)

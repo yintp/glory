@@ -664,7 +664,7 @@ flowchart LR
 1. **延迟优先于可靠**：实时通话宁可丢几帧（画面短暂卡顿）也不要排队堆积（延迟膨胀导致"对不上口型"）。UDP 的"尽力交付"恰好匹配——丢了就算了，下一帧补上。
 2. **应用层精准控制**：WebRTC 在 RTP/RTCP 之上自实现 FEC、NACK、GCC，对"哪些帧重传、哪些跳过、码率怎么调"有细粒度控制。TCP 的重传与拥塞控制是内核黑盒，应用无法按帧粒度干预。
 3. **多路复用无阻塞**：WebRTC 一条 UDP 流承载音频、视频、数据通道，通道间独立。音频丢包不应阻塞视频交付（反之亦然），UDP 上各流独立，无 TCP 的字节流队头阻塞。
-4. **NAT 穿透友好**：UDP 的 STUN/TURN 穿透方案成熟（详见 [NAT §3（规划中）](../03-network/nat.md)），TCP 穿透困难（需双方都能接受入站连接）。
+4. **NAT 穿透友好**：UDP 的 STUN/TURN 穿透方案成熟（详见 [NAT §3](../03-network/nat.md)），TCP 穿透困难（需双方都能接受入站连接）。
 
 **方案落地**：
 
@@ -697,7 +697,7 @@ flowchart LR
 - KCP 开源实现：[skywind3000/kcp](https://github.com/skywind3000/kcp)（C 语言，含协议文档）、社区 Java 移植版
 - Linux 内核文档：`udp(7)` man 手册、`Documentation/networking/ip-sysctl.txt`（UDP 相关参数）
 - 延伸阅读：[TCP 连接管理](./tcp-connection.md)（TCP 握手与连接，对照 UDP 无连接）、[TCP 可靠性](./tcp-reliability.md)（TCP 字节流与粘包，对照 UDP 面向报文）、[TCP 拥塞控制](./tcp-congestion.md)（CUBIC/BBR，对照 UDP 无拥塞控制）、[TCP 高频追问](./tcp-high-frequency.md)
-- 跨层关联：[DNS](../01-application/dns.md)（UDP 典型场景）、[HTTP](../01-application/http.md)（HTTP/3 基于 QUIC）、[NAT（规划中）](../03-network/nat.md)（UDP 的 STUN/TURN 穿透）
+- 跨层关联：[DNS](../01-application/dns.md)（UDP 典型场景）、[HTTP](../01-application/http.md)（HTTP/3 基于 QUIC）、[NAT](../03-network/nat.md)（UDP 的 STUN/TURN 穿透）
 - 仓库内关联：`java-core/rmi`（Java 原生 RPC 用 TCP，对照 UDP 不可靠传输）、`framework/spring-framework`（REST/WebSocket 基于 TCP）、`java-core/stream`（Netty Pipeline 用函数式编排 UDP Handler）
 
 > **返回**：[网络知识图谱](../README.md)
