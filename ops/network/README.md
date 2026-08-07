@@ -91,7 +91,7 @@ mindmap
 | 网络层 | [NAT](./03-network/nat.md) | NAT 类型、NAPT、穿透方案 |
 | 网络层 | [路由/ICMP](./03-network/routing.md) | OSPF、BGP、ICMP、Traceroute |
 | 链路层 | [以太网/ARP](./04-link/ethernet.md) | ARP、VLAN、STP |
-| 系统设计 | [经典案例](./05-system-design/classic-cases.md) | 短链/IM/弹幕/限流/负载均衡 |
+| 系统设计 | [经典案例](./05-system-design/classic-cases.md) | 短链/IM/弹幕/文件分片上传/限流/负载均衡 |
 | 系统设计 | [云原生](./05-system-design/cloud-native.md) | Service Mesh、K8s CNI、eBPF |
 | 面试冲刺 | [Q&A 速答](./06-interview-qa.md) | 50+ 高频题速答 |
 
