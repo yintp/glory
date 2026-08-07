@@ -165,7 +165,7 @@ HTTP/3（RFC 9114，2022）将传输层由 TCP 切换为 **QUIC**（基于 UDP�
 **重点状态码详解**：
 
 - **101 Switching Protocols**：协议升级，如 WebSocket 握手时由 HTTP 升级到 ws/wss。
-- **301 Moved Permanently**：永久重定向，搜索引擎收录新 URL；**308** 同义且不改方法。
+- **301 Moved Permanently**：永久重定向，搜索引擎收录新 URL；**308**（HTTP 1.1 后续 RFC 7538 补充）同义且不改方法。
 - **302 Found**：临时重定向，**303 See Other** 强制改 GET（POST→GET），**307** 临时重定向且保留方法。
 - **304 Not Modified**：协商缓存命中，客户端用本地副本。
 - **401 Unauthorized**：未认证，需带凭据（WWW-Authenticate 指明方案）。
@@ -184,8 +184,8 @@ HTTP 缓存分两层：**强缓存**（不与服务器通信，命中即用）+ 
 **强缓存相关头**：
 
 - `Cache-Control: max-age=600`：相对 600 秒内有效（高优先级）。
-- `Cache-Control: no-cache`：**强制协商**，每次都要校验服务器。
-- `Cache-Control: no-store`：**禁止缓存**（连磁盘都不许存）。
+- `Cache-Control: no-cache`：**强制协商**，每次都要校验服务器（注意：不是"不缓存"，而是"缓存但必校验"）。
+- `Cache-Control: no-store`：**彻底禁止缓存**（连磁盘都不许存，真正语义上的"不缓存"；与 no-cache 易混，务必区分）。
 - `Cache-Control: public/private`：是否允许中间 CDN 缓存。
 - `Expires: Wed, 07 Aug 2026 12:00:00 GMT`：绝对过期时间（HTTP/1.0 遗产，被 max-age 覆盖）。
 
@@ -347,7 +347,7 @@ sequenceDiagram
 **短链选型**：通常用 **302**，理由：
 1. 需要统计点击量、地域、UA → 必须回流服务器；
 2. 短链可能临时切到活动页/失效页/风控页，需要动态决策；
-3. CDN 不缓存，保证 301 切换后用户立即生效。
+3. CDN 不缓存 302，保证临时切改跳转目标后用户立即生效。
 
 例外：永久业务下线且不统计 → 用 301 减压。
 
