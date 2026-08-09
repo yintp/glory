@@ -87,7 +87,6 @@ stateDiagram-v2
     S --> R: 事件就绪被唤醒
     R --> D: 进入不可中断 IO（磁盘/NFS）
     D --> R: IO 完成
-    D --> [*]: 仅特殊场景（IO 永久卡死）
     R --> T: 收 SIGSTOP
     T --> R: 收 SIGCONT
     R --> Z: exit() 退出
@@ -158,7 +157,7 @@ CFS（Completely Fair Scheduler，2.6.23 引入）是 Linux 默认调度类，�
 | `cfs_sched_class` | SCHED_NORMAL/SCHED_BATCH | 普通进程（默认） | 按公平 |
 | `idle_sched_class` | SCHED_IDLE | 空闲任务（每 CPU 一个） | 最低 |
 
-**nice 与权重映射**：nice 范围 -20 到 19（默认 0），不是直接调时间片而是调整**权重**（`prio_to_weight` 表，nice 0 权重 1024）。nice 每差 1，权重差约 25%（×1.25 或 ÷1.25）。nice -20 比 nice 0 权重高约 4900 倍。
+**nice 与权重映射**：nice 范围 -20 到 19（默认 0），不是直接调时间片而是调整**权重**（`prio_to_weight` 表，nice 0 权重 1024）。nice 每差 1，权重差约 25%（×1.25 或 ÷1.25）。nice -20 比 nice 0 权重高约 87 倍（88761 ÷ 1024 ≈ 86.7，与 ×1.25 的 20 次方一致）。
 
 > **关键认知**：nice 调的是**权重比**（影响 vruntime 增长速度），不是直接的时间片长度。时间片是"当前周期内按权重分配的份额"，会随队列进程数变化。所以问"nice 调的是优先级还是时间片"——答案是"调权重，间接影响两者"。
 
