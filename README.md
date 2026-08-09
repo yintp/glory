@@ -118,10 +118,10 @@ Java 全栈技术学习仓库，涵盖算法、Java 核心、设计模式、框�
 
 - Linux
 - K8s
-- Docker
+- Docker（10 份面试知识文档，含 Java 容器调优与 ZGC 选型）
 - 计算机网络（按 OSI 分层的 17 份面试知识文档，含系统设计案例）
 
-详见 [ops/network/README.md](./ops/network/README.md)
+详见 [ops/docker/README.md](./ops/docker/README.md) 与 [ops/network/README.md](./ops/network/README.md)
 
 ---
 
