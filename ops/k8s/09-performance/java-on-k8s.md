@@ -254,13 +254,13 @@ JVM 容器感知的底层（cgroup v2 兼容、UseContainerSupport 源码、堆�
 | 项 | 占比 | 量级（2Gi 容器） | 配置 |
 |----|------|-----------------|------|
 | 堆 | 75% | 1.5Gi | `-XX:MaxRAMPercentage=75.0` |
-| Metaspace | ~12% | ~256Mi | `-XX:MaxMetaspaceSize=256m` |
-| 线程栈 | ~10% | ~200Mi | Tomcat 200 线程 × `-Xss1m` |
+| Metaspace | ~6% | ~120Mi | `-XX:MaxMetaspaceSize=120m` |
+| 线程栈 | ~6% | ~120Mi | Tomcat 120 线程 × `-Xss1m` |
 | 直接内存 | ~2% | ~40Mi | NIO/Netty 应用偏大 |
-| JIT CodeCache | ~1% | ~240Mi | `-XX:ReservedCodeCacheSize=240m` |
-| JVM 自身 | - | ~50Mi | GC 数据结构等 |
+| JIT CodeCache | ~7% | ~150Mi | `-XX:ReservedCodeCacheSize=150m` |
+| JVM 自身 | ~4% | ~80Mi | GC 数据结构等 |
 
-2Gi 容器各项总和约 2.286Gi——略超，故小容器（<2GB）建议 `MaxRAMPercentage=60` 留更多堆外预算。
+2Gi 容器各项总和约 2.0Gi（接近填满 2Gi 上限，仅余 ~2Mi buffer），小容器（<2GB）堆外预算紧张，建议 `MaxRAMPercentage=60` 留更多堆外预算。
 
 #### 2.4.3 resources 配置与 QoS
 
@@ -367,7 +367,7 @@ K8s 滚动更新时，kubelet 通过 containerd/CRI-O 拉新镜像。镜像按�
 
 ### Q6：JVM 堆与容器内存 limits 怎么分配？
 
-**参考答案**：MaxRAMPercentage=75%，剩余 25% 给堆外：Metaspace/线程栈/直接内存/JIT。预算公式：`limits.memory > 堆 + Metaspace + DirectBuffer + ThreadStack × 线程数 + CodeCache + JVM 自身`。2Gi 容器堆 1.5Gi（75%）+ 堆外各项约 0.786Gi，小容器（<2GB）建议 `MaxRAMPercentage=60` 留更多堆外预算。requests=limits 保 Guaranteed QoS，JVM 按 limits 算堆可预测。
+**参考答案**：MaxRAMPercentage=75%，剩余 25% 给堆外：Metaspace/线程栈/直接内存/JIT。预算公式：`limits.memory > 堆 + Metaspace + DirectBuffer + ThreadStack × 线程数 + CodeCache + JVM 自身`。2Gi 容器堆 1.5Gi（75%）+ 堆外各项约 0.50Gi（合计约 2.0Gi，接近填满 2Gi 上限），小容器（<2GB）建议 `MaxRAMPercentage=60` 留更多堆外预算。requests=limits 保 Guaranteed QoS，JVM 按 limits 算堆可预测。
 
 > **关联**：§2.4 JVM 堆与容器内存预算、[Java 容器调优](../../docker/08-performance/java-container-tuning.md) §2.1.4、[调度与资源管理](../05-scheduling/scheduling-and-resources.md) §QoS 三级。
 
@@ -393,7 +393,7 @@ K8s 滚动更新时，kubelet 通过 containerd/CRI-O 拉新镜像。镜像按�
 
 **参考答案**：PID 1 应该是 JVM，否则 sh 不转发 SIGTERM，JVM 收不到优雅关闭信号。若 Dockerfile 写 `ENTRYPOINT ["sh", "-c", "java -jar app.jar"]`，sh 是 PID 1，sh 不转发信号给 JVM，JVM 等 30s gracePeriod 后被 SIGKILL，ShutdownHook 不执行。**修复**：用 `ENTRYPOINT ["java", "-jar", "app.jar"]`（exec 形式）或用 [tini](https://github.com/krallin/tini) 作为 init 转发信号。验证：`kubectl exec <pod> -- ps -o pid,comm` 看 PID 1 是不是 java。
 
-> **关联**：§2.1.4 JVM ShutdownHook 与 SIGTERM 协作、[容器运行时与生命周期](../../docker/03-container/container-runtime.md) §2 PID 1 与信号。
+> **关联**：§2.1.4 JVM ShutdownHook 与 SIGTERM 协作、[容器运行时与生命周期](../../docker/03-container/container-runtime.md) §2.4 PID 1 与信号处理。
 
 ---
 
