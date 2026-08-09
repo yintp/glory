@@ -466,7 +466,7 @@ ops/docker/
      - `services`：服务定义（image/build/ports/volumes/environment/depends_on/healthcheck）
      - `networks`：网络定义（driver: bridge/overlay、external 引用已有网络）
      - `volumes`：命名卷定义（driver: local/nfs、external 引用已有卷）
-     - `configs` / `secrets`：Swarm 才有效，Compose 单机版降级处理
+     - `configs` / `secrets`：仅 Swarm 模式生效；Compose 单机版把 `secrets` 当 bind mount 挂载到 `/run/secrets/<name>`，`configs` 当只读 bind mount 挂载到 `/`
    - **服务编排核心指令详解**（深度重点）：
      - `depends_on` 与"启动顺序"陷阱：只保证创建顺序，不保证就绪；长链依赖时仍踩坑
      - `depends_on` 的 condition 形式（service_healthy / service_completed_successfully / service_started）
@@ -689,11 +689,19 @@ ops/docker/
           - `ZUncommitDelay`：堆内存归还给操作系统（归还给 cgroup）的延迟，容器自动缩容时有用
           - `ZGenerational`（JDK 21+）：分代 ZGC，改善小堆场景的分配停顿，容器化更友好
        4. **选型决策树**（mermaid flowchart）：
-          - 容器内存 < 2GB → G1
-          - 容器内存 2-8GB 且无强延迟要求 → G1
-          - 容器内存 > 8GB 且停顿 < 10ms → ZGC
-          - 容器内存 > 8GB 且 JDK 21+ → ZGenerational ZGC
-          - RedHat 系且无 ZGC → Shenandoah
+          ```mermaid
+          flowchart TD
+            A[容器内存上限] --> B{< 2GB?}
+            B -- 是 --> C[G1]
+            B -- 否 --> D{2-8GB?}
+            D -- 是 --> E{强延迟要求?}
+            E -- 否 --> C
+            E -- 是 <10ms --> F[ZGC]
+            D -- 否 --> G{JDK 21+?}
+            G -- 是 --> H[分代 ZGC ZGenerational]
+            G -- 否 --> F
+            I[RedHat 系且无 ZGC] --> J[Shenandoah]
+          ```
        5. **关联 `java-core/jvm`**：
           - ZGC 的染色指针与读屏障源码推导
           - 分代 ZGC（JEP 439）的分代设计动机
@@ -741,7 +749,16 @@ ops/docker/
      - Spring Boot 3.x 的 JarLauncher 与 2.x 的 JarLauncher 路径变化
      - Spring Boot 优雅关闭 `server.shutdown=graceful`（衔接第 3 章 PID 1）
    - 关联 `framework/valid`：健康检查端点 `/actuator/health` 作为 K8s/Compose probe（衔接第 6 章 healthcheck）
-   - **调优决策树**（mermaid flowchart）：容器 OOM → 退出码 137？→ 堆 OOM 还是 cgroup OOM？→ 调整堆/堆外预算/换 native image
+   - **调优决策树**（mermaid flowchart）：
+     ```mermaid
+     flowchart TD
+       A[容器 OOM] --> B{退出码 137?}
+       B -- 是 --> C{堆 OOM 还是 cgroup OOM?}
+       C -- 堆 OOM --> D[调大 MaxRAMPercentage]
+       C -- cgroup OOM --> E[堆外内存预算漏了]
+       E --> F[补预算: Metaspace+DirectBuffer+ThreadStack]
+       B -- 否 --> G[查 GC 日志与内存泄漏]
+     ```
 
 5. **面试案例**
    - "Java 应用容器化后 OOM Killed，怎么排查？"（退出码 137 → 堆 vs 堆外 → 预算公式 → 调整 MaxRAMPercentage）
