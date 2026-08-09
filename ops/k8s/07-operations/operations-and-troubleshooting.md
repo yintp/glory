@@ -256,11 +256,11 @@ flowchart LR
 
 **DaemonSet 架构要点**：
 
-- kubelet 把容器 stdout/stderr 通过 log driver（默认 json-file）写到 `/var/log/containers/<pod>_<ns>_<container>-<id>.log`，软链到 `/var/log/pods/<ns>_<pod>_<uid>/<container>/0.log`。
+- kubelet 通过 CRI 让容器运行时（containerd 默认）把容器 stdout/stderr 落盘到 `/var/log/containers/<pod>_<ns>_<container>-<id>.log`，软链到 `/var/log/pods/<ns>_<pod>_<uid>/<container>/0.log`（文件为 JSON 行格式；1.24 前借 dockershim 复用 docker json-file driver，1.24+ 由 containerd 的 CRI 日志实现落盘，非 docker 的 logging driver 概念）。
 - Fluentd/Filebeat 以 DaemonSet 形态部署，挂载 `/var/log/containers` 只读，读取日志文件转发到 ES/Loki。
 - 资源开销与 Pod 数无关——每 Node 一个采集器，采集该 Node 所有 Pod 日志。
 
-> **与 Docker 日志驱动的衔接**：K8s 默认用 json-file driver（详见 [容器运行时与生命周期](../../docker/03-container/container-runtime.md) §2.5），日志文件路径与 Docker 一致。Fluentd 读的就是这些文件。
+> **与容器运行时日志的衔接**：K8s 1.24 移除 dockershim 后，kubelet 通过 CRI 的 ContainerLogs 接口让 containerd（默认）落盘，文件为 JSON 行格式但**非 docker 的 logging driver**（详见 [容器运行时与生命周期](../../docker/03-container/container-runtime.md) §2.5）。1.24 前借 dockershim 复用 docker json-file driver，日志路径与 Docker 一致；1.24+ 改由 containerd 的 CRI 日志实现，路径不变但语义不同。Fluentd 读的就是这些文件。
 
 ### 2.8 日志采集 Sidecar 架构
 
@@ -589,7 +589,7 @@ Java 应用的 JMX 指标（如线程数、堆使用率）可暴露给 Prometheu
   - `java-core/jmx`——JMX 指标暴露（MBeanServer）、JMX Exporter 转 Prometheus 指标
   - `java-core/agent`——Java agent attach 的 namespace 陷阱（`AttachProvider`、`VirtualMachine.attach`）
   - `java-core/jvm`——JVM ShutdownHook 与 Pod 优雅关闭协作、JVM 类加载与启动慢根因
-  - [容器运行时与生命周期](../../docker/03-container/container-runtime.md)——容器状态机、json-file 日志驱动、docker stop 信号链
+  - [容器运行时与生命周期](../../docker/03-container/container-runtime.md)——容器状态机、CRI 日志实现（1.24+ containerd 落盘，JSON 行格式）、docker stop 信号链
   - [容器本质与底层原理](../../docker/01-foundation/container-principle.md)——namespace/cgroups、OOM Killer 触发链
 
 > **返回**：[K8s 知识图谱](../README.md)

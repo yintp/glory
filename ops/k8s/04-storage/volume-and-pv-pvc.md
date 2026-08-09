@@ -407,7 +407,7 @@ spec:
 | emptyDir + sidecar Filebeat | 日志落文件可用 logback 滚动策略、sidecar 与应用同 Pod 易管理 | emptyDir 随 Pod 删即清，需 sidecar 实时转发到 ES/Kafka |
 | 直接写 stdout + 采集 Agent | Docker/K8s 原生、`kubectl logs` 统一查看、无文件管理 | 无法用 logback 滚动、依赖节点级 Agent（DaemonSet Filebeat） |
 
-> **生产推荐**：Java 应用写 stdout（`kubectl logs` 统一查看），节点级 DaemonSet Filebeat 采集 json-file driver 的日志转发到 ELK。审计日志需落文件时用 emptyDir + sidecar。
+> **生产推荐**：Java 应用写 stdout（`kubectl logs` 统一查看），节点级 DaemonSet Filebeat 采集 CRI 运行时（containerd 默认）落盘的日志转发到 ELK。审计日志需落文件时用 emptyDir + sidecar。
 
 ### 4.2 Java 应用配置卷：ConfigMap 作为 Volume
 
@@ -507,7 +507,7 @@ ConfigMap Volume 挂载的配置文件优先级**高于**镜像内默认值，�
 
 > 我们有两种方案，按场景选。
 >
-> 第一种是 **stdout + 节点级 Agent 采集**，这是生产首选。Java 应用（Spring Boot）默认日志输出到 stdout，kubelet 用 docker json-file driver 落盘到 Node 的 `/var/log/containers/<pod>_<container>.log`。然后部署一个 DaemonSet 的 Filebeat/Fluentd agent，挂载 hostPath `/var/log/containers` 读取日志转发到 ELK/Loki。优点是 K8s 原生、`kubectl logs` 统一查看、无需 Pod 内管理文件。缺点是无法用 logback 的滚动策略，依赖节点级 Agent。
+> 第一种是 **stdout + 节点级 Agent 采集**，这是生产首选。Java 应用（Spring Boot）默认日志输出到 stdout，kubelet 通过 CRI 让容器运行时（containerd 默认）落盘到 Node 的 `/var/log/containers/<pod>_<container>.log`（文件为 JSON 行格式；1.24 前借 dockershim 复用 docker json-file driver，1.24+ 由 containerd 的 CRI 日志实现落盘，非 docker 的 logging driver 概念）。然后部署一个 DaemonSet 的 Filebeat/Fluentd agent，挂载 hostPath `/var/log/containers` 读取日志转发到 ELK/Loki。优点是 K8s 原生、`kubectl logs` 统一查看、无需 Pod 内管理文件。缺点是无法用 logback 的滚动策略，依赖节点级 Agent。
 >
 > 第二种是 **emptyDir + sidecar Filebeat**，用于审计日志等需落文件的场景。主容器配 logback 写 `/app/logs/app.log`（滚动策略：100MB + 7 天），定义一个 emptyDir 卷 `shared-logs`，主容器与 Filebeat sidecar 都挂载这个卷。主容器写文件，Filebeat 读文件转发到 ES/Kafka。emptyDir 随 Pod 删即清，但 sidecar 实时转发已到中心化存储，数据不丢。
 >
@@ -521,7 +521,7 @@ ConfigMap Volume 挂载的配置文件优先级**高于**镜像内默认值，�
 |------|---------|
 | emptyDir Pod 删了日志不就丢？ | sidecar 实时转发到 ES/Kafka，emptyDir 只是中转，中心化存储才是持久层 |
 | 为什么不用 PVC 存日志？ | 日志是时序数据，查询走 ELK 不走文件系统；PVC 成本高且不适合高频写 |
-| stdout 方案怎么控制日志大小？ | json-file driver 配 `max-size` + `max-file` 轮转，或改用 journald/fluentd driver |
+| stdout 方案怎么控制日志大小？ | 由容器运行时的 CRI 日志实现控制轮转（containerd 默认按大小/时间轮转），1.24 前借 dockershim 复用 docker json-file driver 配 `max-size` + `max-file`；也可改用节点级 journald/fluentd |
 
 ### 5.2 "StatefulSet 部署 MySQL，数据怎么保证不丢？"——volumeClaimTemplates 全链路
 
