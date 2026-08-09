@@ -30,7 +30,7 @@
 
 ### Q3: Docker 进程死了，容器会死吗？
 
-**答**：不会立即死，这就是 dockerd 与容器进程之间插入 containerd-shim 的设计目的。shim 作为容器进程的父进程（即 PID 1 的父进程），负责 收集退出状态 + 上报给 containerd。即使 dockerd 宕机或重启，shim 仍存活，容器进程继续运行；docked 恢复后通过 shim 重新接管。只有 shim 进程退出，容器才真正结束。这套设计实现了"容器生命周期与 dockerd 解耦"。
+**答**：不会立即死，这就是 dockerd 与容器进程之间插入 containerd-shim 的设计目的。shim 作为容器进程的父进程（即 PID 1 的父进程），负责 收集退出状态 + 上报给 containerd。即使 dockerd 宕机或重启，shim 仍存活，容器进程继续运行；dockerd 恢复后通过 shim 重新接管。只有 shim 进程退出，容器才真正结束。这套设计实现了"容器生命周期与 dockerd 解耦"。
 
 **关联**：→ [容器本质与底层原理](./01-foundation/container-principle.md)
 
