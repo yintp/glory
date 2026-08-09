@@ -152,7 +152,7 @@ mindmap
         引用 docker 模块
     面试冲刺
       Q&A 速答
-        40+ 高频题
+        45 高频题
       连环套问思维导图
 ```
 
@@ -171,7 +171,7 @@ mindmap
 | 运维与排障 | [运维与故障排查](./07-operations/operations-and-troubleshooting.md) | Helm/发布策略/HPA-VPA/日志/Prometheus/排障方法论 |
 | 扩展机制 | [CRD 与 Operator](./08-extensions/crd-and-operator.md) | CRD/Operator/Informer-List-Watch/Webhook/自定义调度器 |
 | Java 调优 | [Java 应用上 K8s](./09-performance/java-on-k8s.md) | JVM 感知/preStop 优雅关闭/actuator 探针/ConfigMap/Layertools |
-| 面试冲刺 | [Q&A 速答](./10-interview-qa.md) | 40+ 题速答 + 连环套问思维导图 |
+| 面试冲刺 | [Q&A 速答](./10-interview-qa.md) | 45 题速答 + 连环套问思维导图 |
 
 > 共 **10 份**文档：入口 README（本文档）+ 上表 9 份主题/Q&A 文档。
 
@@ -196,7 +196,7 @@ mindmap
 1. 02 工作负载 → 03 网络 → 01 架构基础
 2. 05 调度与资源 → 06 配置与安全 → 04 存储
 3. 07 运维与排障 → 09 Java 上 K8s → 08 扩展机制
-4. 10 Q&A（40+ 题，含连环套问思维导图）
+4. 10 Q&A（45 题，含连环套问思维导图）
 
 **特点**：投入产出比最高，覆盖 80% 高频考点。
 
