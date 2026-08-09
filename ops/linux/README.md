@@ -150,7 +150,7 @@ mindmap
 | 性能排障 | [性能与故障排查](./09-ops/performance-and-troubleshooting.md) | USE/RED、top/vmstat/iostat、perf、strace、tcpdump、eBPF、排障四步法 |
 | 面试冲刺 | [Q&A 速答](./10-interview-qa.md) | 50+ 题速答 + 连环套问思维导图 |
 
-> 共 **11 份**文档：入口 README（本文档）+ 上表 9 份主题/Q&A 文档。
+> 共 **11 份**文档：入口 README（本文档）+ 上表 10 份主题/Q&A 文档。
 
 ---
 
@@ -180,7 +180,7 @@ mindmap
 
 ---
 
-## 五、与 java-core / framework 模块的关联
+## 五、与 java-core / framework / ops 模块的关联
 
 本模块虽为系统层文档，但与仓库内 Java 模块存在直接关联，便于在面试中结合源码与实战作答：
 
