@@ -341,7 +341,7 @@ java -XX:+UseContainerSupport -XX:+PrintContainerInfo -version
 # 输出 cgroup 路径与读到的 limit
 ```
 
-**关联**：[Java 容器调优](../08-performance/java-container-tuning.md) §1 JVM 容器感知源码路径、`java-core/jvm` 模块的 `HotspotContainer` 类源码。
+**关联**：[Java 容器调优](../08-performance/java-container-tuning.md) §1 JVM 容器感知源码路径。`java-core/jvm` 模块目前聚焦类加载与类初始化，未覆盖 container 源码实例——本节在文档层引用 HotSpot 上游源码路径（`os::Linux::container`），作为面试时引用源码出处的口径，不依赖仓库内 Java 文件。
 
 ### Q5：OverlayFS 与 bind mount 的差异？为什么 volume 比 bind mount 更安全？
 
@@ -420,8 +420,8 @@ Spring Boot 应用打包为镜像后，JVM 看到的“CPU 数”和“内存上
 **默认探测路径**（JDK 8u191+ / 11+）：
 
 ```java
-// HotspotContainer.java（简化伪代码）
-class HotspotContainer {
+// 对应 HotSpot 上游源码 os::Linux::container 的简化伪代码（仓库内无此文件）
+class HotspotContainer {  // 伪代码示意，非仓库实际类
     boolean isContainerized() {
         // 1. 检查 /proc/self/cgroup 是否含 memory 子系统
         // 2. 读 /sys/fs/cgroup/memory/memory.limit_in_bytes（v1）
@@ -462,7 +462,7 @@ java \
   -jar app.jar
 ```
 
-**关联 `java-core/jvm` 模块**：该模块包含 `HotspotContainer` 源码与容器感知测试用例，对照理解 [Java 容器调优](../08-performance/java-container-tuning.md) §1.2 推导链。
+**关联 `java-core/jvm` 模块**：该模块目前聚焦类加载（`com.yintp.jvm.classload.ClassLoadTest`）与类初始化（`com.yintp.jvm.classinit.ClassInitTest1~9`），未覆盖 GC 与 container 源码实例——本节在文档层引用 HotSpot 上游源码路径（`os::Linux::container`），作为面试时引用源码出处的口径，不依赖仓库内 Java 文件。对照理解 [Java 容器调优](../08-performance/java-container-tuning.md) §1.2 推导链。
 
 ### 4.2 Spring Boot PID 1 与优雅关闭
 
@@ -578,7 +578,7 @@ docker exec app java -Xmx1024m -cp . OOMDemo
   - [Docker 安全模型](../07-security/docker-security.md)——capabilities、userns-remap
   - [Java 容器调优](../08-performance/java-container-tuning.md)——JVM 感知、堆外预算
 - **仓库内关联**：
-  - `java-core/jvm`——`HotspotContainer` 源码、JVM 容器感知实现
+  - `java-core/jvm`——类加载与类初始化实例（容器感知见 [Java 容器调优](../08-performance/java-container-tuning.md) §1 引用的 HotSpot 上游源码路径）
   - `framework/spring-framework`——`ContextClosedEvent`、shutdown hook、优雅关闭
   - [TCP 连接管理](../../network/02-transport/tcp-connection.md)——容器网络底层 veth + iptables 的 TCP 视角
 

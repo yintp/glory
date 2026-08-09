@@ -834,7 +834,7 @@ $ docker run -v /host/app.yml:/app/config/app.yml myapp
 2. **改用 volume**：空 volume 首次挂载会自动复制镜像内容，不会创建空目录。
 3. **只挂目录不挂单文件**：`-v /host/config/:/app/config/`，宿主目录提前放好 `app.yml`。
 
-**延伸**：bind mount 还有两大陷阱——② uid 权限不匹配（容器内 `--user 1000` 读宿主 root 拥有的文件报 Permission denied）；③ 覆盖镜像内容（挂载点遮蔽镜像里同名路径，原内容"消失"）。生产优先用 volume 避免 these 陷阱。
+**延伸**：bind mount 还有两大陷阱——② uid 权限不匹配（容器内 `--user 1000` 读宿主 root 拥有的文件报 Permission denied）；③ 覆盖镜像内容（挂载点遮蔽镜像里同名路径，原内容"消失"）。生产优先用 volume 避免这些陷阱。
 
 ### 5.4 "镜像里删了文件，为什么镜像还变大？"——whiteout 陷阱
 
