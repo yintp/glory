@@ -139,6 +139,29 @@ Volume 挂载时，kubelet 周期性（约 60-90 秒，走 kubelet volume manage
 
 > **关联**：ConfigMap 热更新与 Spring Boot 的配合详见 §四 4.1、§四 4.2。
 
+### 2.2 ConfigMap 热更新决策图
+
+三种挂载方式的热更新行为可归纳为以下决策树：
+
+```mermaid
+flowchart TD
+    CM[ConfigMap 更新] --> Q{挂载方式?}
+    Q -->|envFrom / configMapRef| ENV[环境变量注入]
+    Q -->|volumeMounts.configMap| VOL[Volume 目录挂载]
+    Q -->|volumeMounts + subPath| SUB[subPath 挂载]
+    ENV --> E1[不热更新<br/>进程启动期快照]
+    E1 --> E2[需 kubectl rollout restart]
+    VOL --> V1[热更新<br/>kubelet 60-90s 周期同步]
+    V1 --> V2[应用监听文件变更<br/>可动态刷新]
+    SUB --> S1[不热更新<br/>挂的是符号链接非目录]
+    S1 --> S2[指向旧 inode<br/>需重启 Pod]
+    style E2 fill:#fdd,stroke:#c00
+    style V2 fill:#dfd,stroke:#0a0
+    style S2 fill:#fdd,stroke:#c00
+```
+
+**决策要点**：env 方式是"启动期快照"，改了必须重启；Volume 目录挂载是唯一热更新路径，但有 60-90s 同步延迟，且应用须主动监听文件变更才能真正生效；subPath 看似 Volume 挂载实则不热更新，是最隐蔽的坑。三条路径只有 Volume 目录挂载能动态刷新，其余两条都需重启 Pod。
+
 ### 2.3 Secret 类型与加密
 
 **四种 Secret 类型**已在 §1.3 列表，典型用法：Opaque 存自定义 Key-Value（密码/token，见 §4.3 完整 YAML）；dockerconfigjson 存 `.dockerconfigjson`（Pod 用 `spec.imagePullSecrets: [{ name: regcred }]` 引用，kubelet 拉镜像前读此凭证构造 `docker login`，也可给 SA 绑让所有 Pod 自动带凭证）；tls 存 `tls.crt`+`tls.key`（被 Ingress Controller 自动读取配 HTTPS）。1.14+ 支持 `stringData` 字段直接写明文，提交时 API Server 自动 base64 编码。
@@ -325,8 +348,6 @@ PodSecurityPolicy（PSP）在 1.21 弃用、1.25 移除，被 PodSecurity Standa
 | 吊销 | 删 SA 重建（影响所有 Pod） | Pod 删 Token 即失效 |
 
 **核心收益**：从"永久凭证 + 难吊销"到"短期凭证 + Pod 绑定 + 自动续期"，符合零信任"凭证最小生命周期"原则——泄露的短期 Token 1 小时后自动失效，泄露的永久 Token 永远有效。
-
-> **关联**：§2.6 ServiceAccount Token 演进。
 
 > **关联**：§2.6 ServiceAccount Token 演进。
 
