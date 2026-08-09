@@ -59,7 +59,7 @@ Docker 网络采用 **CNM（Container Network Model）** 自有模型，由三�
 | IPAM | libnetwork 内建 | 独立 IPAM 插件 |
 | 网络 attach/detach | 支持 attach 到运行中容器 | Pod 创建时一次性配置，不支持动态 attach |
 
-> **边界声明**：本章只讲 Docker 自有的 CNM 模型与五大内置驱动。K8s 的 CNI 插件生态（Calico BGP、Flannel VXLAN、Cilium eBPF）属独立知识域，参见 [云原生网络](../network/05-system-design/cloud-native.md)。
+> **边界声明**：本章只讲 Docker 自有的 CNM 模型与五大内置驱动。K8s 的 CNI 插件生态（Calico BGP、Flannel VXLAN、Cilium eBPF）属独立知识域，参见 [云原生网络](../../network/05-system-design/cloud-native.md)。
 
 ### 1.4 五大内置网络驱动一览
 
@@ -435,7 +435,7 @@ Docker 网络隔离的底层是 network namespace：
 
 **口诀**：PREROUTING DNAT 改目标 → docker0 转发到容器 → 容器处理 → POSTROUTING SNAT 改源 → eth0 出网。
 
-**关联**：[NAT](../network/03-network/nat.md) §NAPT 与四种 NAT 类型——Docker 的 SNAT 本质是 NAPT（Network Address Port Translation）。
+**关联**：[NAT](../../network/03-network/nat.md) §NAPT 与四种 NAT 类型——Docker 的 SNAT 本质是 NAPT（Network Address Port Translation）。
 
 ### Q2：为什么默认 bridge 下容器间不能用容器名通信，自定义 bridge 可以？
 
@@ -470,7 +470,7 @@ $ docker exec c1 ping c2  # 通, 解析为 mynet 子网 IP
 
 **关键**：这是 **SNAT（源地址转换）**，对外屏蔽了容器 IP，外网看到的源是宿主。MASQUERADE 是动态 SNAT，自动取出口网卡当前 IP，适合 DHCP 动态 IP 的宿主。
 
-**关联**：[NAT](../network/03-network/nat.md) §NAPT 与四种 NAT 类型——这是 NAPT 的典型应用，与家用路由器的 SNAT 同理。
+**关联**：[NAT](../../network/03-network/nat.md) §NAPT 与四种 NAT 类型——这是 NAPT 的典型应用，与家用路由器的 SNAT 同理。
 
 ### Q4：外部如何访问容器内服务？
 
@@ -618,7 +618,7 @@ Docker 网络的底层机制与计算机网络原理高度耦合，以下三处�
 
 #### 4.2.1 TCP 连接管理：容器内 TIME_WAIT 堆积
 
-[TCP 连接管理](../network/02-transport/tcp-connection.md) §TIME_WAIT 与端口耗尽：
+[TCP 连接管理](../../network/02-transport/tcp-connection.md) §TIME_WAIT 与端口耗尽：
 
 - **场景**：Spring Boot 容器作为客户端高频短连接访问下游 MySQL 容器，TIME_WAIT 堆积在 Spring Boot 容器侧。
 - **容器特有陷阱**：容器 netns 的 ephemeral port range（默认 32768-60999）与宿主共享 `net.ipv4.ip_local_port_range`，但每个容器 netns 独立——容器内 `ss -tan | grep TIME-WAIT | wc -l` 看到的是容器自己的 TIME_WAIT 数。
@@ -626,15 +626,15 @@ Docker 网络的底层机制与计算机网络原理高度耦合，以下三处�
 
 #### 4.2.2 NAT：docker0 的 SNAT 就是 NAPT
 
-[NAT](../network/03-network/nat.md) §NAPT 与四种 NAT 类型：
+[NAT](../../network/03-network/nat.md) §NAPT 与四种 NAT 类型：
 
 - Docker 的 **MASQUERADE 出网**本质是 **NAPT（Network Address Port Translation）**——多对一地址转换 + 端口区分，与家用路由器的 SNAT 同理。
 - Docker 的 **DNAT 端口映射**（`-p 8080:80`）是入向 NAPT，把宿主 8080 映射到容器 80。
-- **对照四种 NAT 类型**：Docker bridge 网络相当于 **Symmetric NAT**（对称 NAT）——同一容器对同一目标的端口映射固定，但不同目标用不同端口，外部主动入向需显式 `-p` 端口映射，否则不可达。这与 [NAT](../network/03-network/nat.md) §STUN/TURN/ICE 穿透讨论的 NAT 类型可对照理解。
+- **对照四种 NAT 类型**：Docker bridge 网络相当于 **Symmetric NAT**（对称 NAT）——同一容器对同一目标的端口映射固定，但不同目标用不同端口，外部主动入向需显式 `-p` 端口映射，否则不可达。这与 [NAT](../../network/03-network/nat.md) §STUN/TURN/ICE 穿透讨论的 NAT 类型可对照理解。
 
 #### 4.2.3 云原生网络：overlay/VXLAN 与 K8s CNI 的边界
 
-[云原生网络](../network/05-system-design/cloud-native.md) §K8s CNI 与 Service Mesh：
+[云原生网络](../../network/05-system-design/cloud-native.md) §K8s CNI 与 Service Mesh：
 
 - **VXLAN 同源**：Docker overlay 与 K8s Flannel 的 VXLAN 模式用的是**同一 VXLAN 协议**（UDP 4789 + VNI），差异在控制面（Docker 用 libnetwork + etcd，Flannel 用 etcd 直接存 key）。
 - **边界**：Docker overlay 是 Docker Swarm 专属，K8s 不用 libnetwork，而是通过 CNI 接口调用 Calico/Flannel/Cilium 插件。CNI 插件生态比 Docker 网络驱动丰富得多（Calico BGP 路由、Cilium eBPF 数据面、Weave 加密）。
@@ -778,7 +778,7 @@ overlay 网络靠 **VXLAN 隧道**实现跨主机 L2 互通。VXLAN 把**原始 
 
 **性能代价**：① MTU 从 1500 降到 1450（外层占 50 字节），未调 MSS 时大包分片；② 封装/解封装 CPU 开销，高并发下降 10-30%；③ 延迟增加 0.1-0.5ms；④ 依赖外部键值存储，运维复杂。
 
-**边界**：Docker overlay 是 Swarm 专属，K8s 不用 libnetwork，而是通过 CNI 调用 Calico/Flannel/Cilium。Calico 用 BGP 路由（无封装），Cilium 用 eBPF（数据面高性能），与 Docker overlay 的 VXLAN 是不同技术路线，详见 [云原生网络](../network/05-system-design/cloud-native.md)。
+**边界**：Docker overlay 是 Swarm 专属，K8s 不用 libnetwork，而是通过 CNI 调用 Calico/Flannel/Cilium。Calico 用 BGP 路由（无封装），Cilium 用 eBPF（数据面高性能），与 Docker overlay 的 VXLAN 是不同技术路线，详见 [云原生网络](../../network/05-system-design/cloud-native.md)。
 
 ---
 
@@ -793,9 +793,9 @@ overlay 网络靠 **VXLAN 隧道**实现跨主机 L2 互通。VXLAN 把**原始 
   - [Docker Compose 多容器编排](../06-compose/docker-compose.md)——depends_on 陷阱、networks 声明式配置、Task 7 衔接
   - [Docker 安全模型](../07-security/docker-security.md)——网络隔离与 capabilities 的边界
 - **ops/network 模块交叉引用**：
-  - [TCP 连接管理](../network/02-transport/tcp-connection.md)——容器内 TIME_WAIT 堆积与端口耗尽
-  - [NAT](../network/03-network/nat.md)——docker0 SNAT 本质是 NAPT，对照四种 NAT 类型
-  - [云原生网络](../network/05-system-design/cloud-native.md)——overlay/VXLAN 与 K8s CNI、Service Mesh 的边界
+  - [TCP 连接管理](../../network/02-transport/tcp-connection.md)——容器内 TIME_WAIT 堆积与端口耗尽
+  - [NAT](../../network/03-network/nat.md)——docker0 SNAT 本质是 NAPT，对照四种 NAT 类型
+  - [云原生网络](../../network/05-system-design/cloud-native.md)——overlay/VXLAN 与 K8s CNI、Service Mesh 的边界
 - **仓库内关联**：
   - `framework/spring-framework`——`server.address` 与容器网络绑定、`ContextClosedEvent` 与优雅关闭
   - `framework/valid`——API 网关端口暴露与 actuator 健康检查端点设计
