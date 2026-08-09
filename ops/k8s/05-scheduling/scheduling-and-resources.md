@@ -187,6 +187,17 @@ affinity:
 
 **PriorityClass** 定义 Pod 的优先级（一个整数，越大越优先）。当高优先级 Pod 因资源不足调度失败时，触发**抢占（Preemption）**——scheduler 在候选 Node 上找低优先级 Pod，驱逐它们腾出资源，让高优先级 Pod 调度成功。
 
+**PriorityClass 核心字段对比**：
+
+| 字段 | 语义 | 默认值 | 典型取值 |
+|------|------|--------|---------|
+| `value` | 优先级整数，越大越优先；决定调度队列出队顺序与抢占资格 | 无（必填） | 业务自定义 ≤ `1000000000`（十亿）；内置系统级 > `1000000000`，如 `system-cluster-critical`（集群级核心组件）、`system-node-critical`（节点级核心组件） |
+| `globalDefault` | 是否作为全集群未指定 `priorityClassName` 的 Pod 的默认优先级来源 | `false` | 全集群最多一个设为 `true`；否则未指定优先级的 Pod 默认优先级为 0 |
+| `preemptionPolicy` | 抢占策略：高优先级 Pod 调度失败时是否驱逐低优先级 Pod | `PreemptLowerPriority` | `PreemptLowerPriority`（可抢占，默认行为）/ `Never`（只排队不抢占，如数据科学批任务优先但不抢已有工作） |
+| `description` | 人类可读描述，便于运维识别优先级用途 | 空 | 任意字符串，如"核心网络插件优先级" |
+
+> **value 取值区间**：32 位整数，`-2147483648` 到 `1000000000` 留给用户自定义，`> 1000000000` 由 K8s 保留给内置系统 PriorityClass（`system-cluster-critical`、`system-node-critical`），用户不可占用该区间，保证系统组件永远比业务 Pod 优先级高。`globalDefault` 设为 `true` 只影响之后新建的未指定 `priorityClassName` 的 Pod，不改变存量 Pod 优先级。
+
 ```mermaid
 flowchart TD
     HighPri[高优先级 Pod 调度] --> Filter{Filter 后候选集为空?}
