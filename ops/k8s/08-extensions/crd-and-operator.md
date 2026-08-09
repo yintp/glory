@@ -69,7 +69,7 @@ Operator 的核心要素：
 | 典型场景 | Istio 注入 envoy sidecar、Vault 注入密钥 | 禁止特权容器、强制 label、OPA Gatekeeper 策略 |
 | 资源 | MutatingWebhookConfiguration | ValidatingWebhookConfiguration |
 
-> **关联**：准入 Webhook 在 API Server 鉴权链中的位置详见 [配置与 RBAC](../06-config-security/config-and-rbac.md) §2.3 API Server 鉴权链，Pod 创建全流程中的准入段详见 [架构总览与核心组件](../01-foundation/k8s-architecture.md) §2.7。
+> **关联**：准入 Webhook 在 API Server 鉴权链中的位置详见 [配置与 RBAC](../06-config-security/config-and-rbac.md) §2.4 RBAC 鉴权链，Pod 创建全流程中的准入段详见 [架构总览与核心组件](../01-foundation/k8s-architecture.md) §2.7。
 
 ### 1.6 自定义调度器
 
@@ -289,7 +289,7 @@ sequenceDiagram
 2. Validating Webhook 收到请求 → 检查 Pod spec → 发现特权容器 →  deny。
 3. API Server 拒绝请求，用户收到 `Pod ... is forbidden: privileged containers are not allowed`。
 
-> **关联**：准入 Webhook 在鉴权链中的位置详见 [配置与 RBAC](../06-config-security/config-and-rbac.md) §2.3（PodSecurity 准入也是 Validating Webhook 的一种内建实现）。
+> **关联**：准入 Webhook 在鉴权链中的位置详见 [配置与 RBAC](../06-config-security/config-and-rbac.md) §2.4 RBAC 鉴权链（PodSecurity 准入也是 Validating Webhook 的一种内建实现）。
 
 ### 2.6 Operator SDK vs KubeBuilder
 
@@ -381,7 +381,7 @@ sequenceDiagram
 - **Validating 后**：schema 校验通过后做 Validating，只能 allow/deny 不能改。多个 Validating 可并行校验，任一拒绝则整体拒绝。
 - **为何此顺序**：若 Validating 先执行，Mutating 的修改可能违反 Validating 规则（如 Validating 禁止某字段，但 Mutating 注入了该字段）；Mutating 先 + schema 校验 + Validating 后，保证最终对象既符合 schema 又满足业务规则。
 
-> **关联**：§2.5 准入 Webhook 流程、[配置与 RBAC](../06-config-security/config-and-rbac.md) §2.3 API Server 鉴权链。
+> **关联**：§2.5 准入 Webhook 流程、[配置与 RBAC](../06-config-security/config-and-rbac.md) §2.4 RBAC 鉴权链。
 
 ### Q6：自定义调度器的 Plugin 怎么扩展？
 
