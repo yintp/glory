@@ -128,7 +128,7 @@ mindmap
 |------|------|---------|
 | 索引原理 | [索引原理与优化](./01-index/index-and-optimization.md) ✅ | B+树/聚簇·二级/回表/覆盖/最左匹配/ICP/MRR/索引失效 |
 | 事务与 MVCC | [事务与 MVCC](./02-transaction/transaction-and-mvcc.md) ✅ | ACID/隔离级别/MVCC/ReadView/Undo Chain/RR vs RC 幻读 |
-| 锁机制 | [锁机制](./03-lock/lock-mechanism.md) ⬜ | 行锁/Gap/Next-Key/意向锁/插入意向锁/死锁/RR·RC 锁差异 |
+| 锁机制 | [锁机制](./03-lock/lock-mechanism.md) ✅ | 行锁/Gap/Next-Key/意向锁/插入意向锁/死锁/RR·RC 锁差异 |
 | 查询优化 | [查询优化与执行计划](./04-query/query-optimization.md) ⬜ | Explain 全字段/JOIN Nested Loop/子查询/深分页/大表 DDL |
 | 存储引擎 | [存储引擎底层](./05-storage/innodb-engine.md) ⬜ | Buffer Pool/Change Buffer/AHI/LSN/Checkpoint/WAL/刷盘 |
 | 日志体系 | [日志体系](./06-log/log-system.md) ⬜ | Undo/Redo/Binlog/Relay Log/两阶段提交/Crash Recovery |
