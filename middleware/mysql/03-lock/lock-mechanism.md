@@ -500,6 +500,7 @@ UPDATE product SET stock = stock - 1 WHERE id = 1 AND stock > 0;
 - Q: Redis 挂了怎么办？ → Redis 集群高可用；降级直走 DB 乐观锁（牺牲性能保正确）。
 - Q: 为什么 DB 层不用 FOR UPDATE？ → 行锁串行化 TPS 极低，乐观锁无锁读+UPDATE 原子操作性能高，冲突少时（Redis 已挡 99%）几乎不重试。
 - Q: 分段锁怎么做？ → 100 件库存拆 10 段（`stock_0`~`stock_9`），hash 到不同段减少热点。
+- Q: 如何保证 Redis 与 DB 库存最终一致？ → 对账系统定时比对 Redis 累计扣减与 DB 实际库存，差异告警人工介入。
 
 ### 案例 2：两事务互相死锁怎么排查
 
