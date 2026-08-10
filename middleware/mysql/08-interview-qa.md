@@ -197,6 +197,8 @@
 
 **答**：key_len 表示索引中**实际使用**的字节数，用于判断联合索引用了几列。计算规则：`CHAR(n)` = `n × 字节倍数`（utf8mb4 四倍、utf8 三倍），`VARCHAR` 额外 +2（变长列长度）、`NULL` 额外 +1（NULL 标志），`INT` 4、`BIGINT` 8、`DATE` 3、`DATETIME` 5。例：联合索引 `(a INT, b VARCHAR(20), c BIGINT)`，`WHERE a=? AND b=?` 的 key_len = 4 + (20×4 + 2) + 0 = 86，若只 `WHERE a=?` 则 key_len=4。用途：判断联合索引是否被完整使用，是否因范围查询断开后续列。
 
+**追问：key_len 为 0 是什么情况？** ①`type=ALL` 全表扫描没用索引，key_len=0；②`type=index` 扫整个索引树但未用索引定位（如 `SELECT COUNT(*)`），key_len 可能不显示；③查询条件无等值匹配只排序时，key_len 可能为 0。key_len=0 通常说明索引未用于过滤，需检查 WHERE 条件是否命中索引列。
+
 **关联**：→ [查询优化与执行计划](./04-query/query-optimization.md)
 
 ### Q23: Extra 里 Using filesort 怎么优化？🔗
