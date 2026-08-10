@@ -309,6 +309,10 @@ INNER JOIN (
 
 **原理**：子查询 `SELECT id` 走覆盖索引（`idx(status, create_time)` 含 id），只扫描索引不回表，拿 10 个主键后 JOIN 回表 10 行——从"扫描 100 万行回表"变成"扫描 100 万行索引（不回表）+ 回表 10 行"。
 
+**延迟关联的前提**：必须有覆盖索引 `(status, create_time)`（或至少 `status` + 主键），否则子查询也需回表，优化失效。若无覆盖索引，延迟关联的收益仅在于"回表行数从 100 万降到 10"，仍有提升但不如有覆盖索引时显著。
+
+**多维度排序的坑**：若 `ORDER BY create_time, update_time`（双字段排序），覆盖索引需 `(status, create_time, update_time)` 才能完全覆盖——否则 filesort 仍存在。生产中尽量用单字段排序或把排序字段都纳入索引。
+
 **游标分页 SQL 示例**：
 
 ```sql
