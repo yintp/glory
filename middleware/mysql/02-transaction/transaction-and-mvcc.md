@@ -154,6 +154,8 @@ flowchart TD
 
 本例 V4 已提交可见，直接返回 V4；若 V4 的 trx_id=100（在 m_ids 中），则不可见，回溯到 V3 再判断。
 
+**可见性判断的性能考量**：MVCC 读 undo 链是**内存操作**（undo log 在 Buffer Pool 的 undo page 中），通常只需遍历 1-2 个版本即命中可见版本。但长事务会导致版本链变长（Purge 无法推进），极端情况下一行有几十个历史版本，每次读都要遍历，查询变慢——这是长事务危害性能的另一个视角。
+
 ### 2.2 RC vs RR 的 ReadView 生成时机差异
 
 MVCC 的核心差异在于 ReadView 的生成时机：
