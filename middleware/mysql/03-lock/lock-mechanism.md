@@ -506,6 +506,31 @@ public void transfer(Long fromId, Long toId, BigDecimal amount) {
 - Q: Gap Lock 导致的死锁怎么避免？ → 切 RC（无 Gap Lock）或走唯一索引（退化为 Record Lock）。
 - Q: 死锁后业务怎么处理？ → 捕获 `DeadlockLoserDataAccessException`，指数退避重试。
 
+**死锁重试的 Java 实现**：
+
+```java
+@Aspect
+@Component
+public class DeadlockRetryAspect {
+    private static final int MAX_RETRY = 3;
+    
+    @Around("@annotation(deadlockRetry)")
+    public Object retry(ProceedingJoinPoint pjp, DeadlockRetry deadlockRetry) throws Throwable {
+        int attempts = 0;
+        while (true) {
+            try {
+                return pjp.proceed();
+            } catch (DeadlockLoserDataAccessException | CannotAcquireLockException e) {
+                if (++attempts > MAX_RETRY) throw e;
+                Thread.sleep(100L * attempts);  // 指数退避
+            }
+        }
+    }
+}
+```
+
+**生产建议**：死锁重试只在**幂等操作**上用——若业务方法含非幂等副作用（如发短信、扣第三方账户），重试会导致重复执行。此时应让事务失败，由人工或对账系统处理。
+
 ---
 
 > **延伸阅读**：
