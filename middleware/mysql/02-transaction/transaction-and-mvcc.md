@@ -244,7 +244,7 @@ SELECT * FROM t WHERE id > 10;        -- 快照读，现在返回 1 行（id=11�
 
 **原因**：`UPDATE`/`DELETE` 是当前读，会"看到"事务 B 插入的行并修改它。被当前读修改过的行，其 `trx_id` 被更新为事务 A 的 ID，之后事务 A 的快照读就能看到它（`trx_id == creator_trx_id` 可见）。这就是"先快照读后当前读触发幻读"的经典场景。
 
-**另一种特殊场景**：事务 A 第一次快照读生成 ReadView，此时事务 B 还活跃（在 `m_ids` 中）；事务 B 提交后，事务 A 再次快照读——B 的修改仍不可见（ReadView 复用，B 在 `m_ids` 中就不可见）。但如果事务 A 执行了 `COMMIT` 后再开新事务读，就能看到 B 的修改了。这不算幻读（已是新事务）。
+**另一种特殊场景**：事务 A 第一次快照读生成 ReadView，此时事务 B 还活跃（在 `m_ids` 中）；事务 B 提交后，事务 A 再次快照读——B 的修改仍不可见（ReadView 复用，B 在 `m_ids` 中就不可见）。只有事务 A 执行 `COMMIT` 后再开新事务，新事务的 ReadView 不含 B，才能看到 B 的修改——这属于新事务的正常读，不算幻读。
 
 ### 2.5 关键源码路径
 
@@ -340,6 +340,16 @@ SET GLOBAL transaction_isolation = 'REPEATABLE-READ';
 
 **与 RC 切换的配合**：8.0 切 RC 需同时确认 `binlog_format=row`（默认），否则 RC + statement 会导致主从不一致。
 
+### 2.10 事务的可见性与 binlog 的关系
+
+**RR 下 ReadView 与 binlog 的协作**：RR 事务的 ReadView 在第一次快照读生成，但 binlog 的写入时机是事务提交时。这意味着：
+
+- **事务内的快照读**：基于 ReadView，与 binlog 无关。
+- **事务提交时**：InnoDB 按提交顺序写 binlog，row 格式下记录每行的变更前后镜像。
+- **从库回放**：从库按 binlog 顺序回放，row 格式下每行变更是幂等的（基于主键定位），不依赖事务隔离级别，所以 RC + row 能保证主从一致。
+
+**statement 格式下 RR 的必要性**：statement 格式记录原始 SQL，从库回放时按 SQL 顺序执行。RC 下事务 A 和 B 可能交叉提交（A 的两条 SELECT 之间 B 提交了修改），statement 格式无法保证从库回放顺序与主库一致——可能导致主从数据不一致。RR 下事务内的 SELECT 复用 ReadView，结果稳定，statement 格式能保证主从一致。这就是 MySQL 默认 RR 的历史原因（5.7 之前默认 statement 格式）。
+
 ---
 
 ## 三、高频追问
@@ -347,6 +357,8 @@ SET GLOBAL transaction_isolation = 'REPEATABLE-READ';
 ### Q1: MVCC 解决了什么问题？Undo Log 版本链怎么工作？
 
 **答**：MVCC 解决的是**读写并发冲突**——让读操作不加锁、不阻塞写，写操作也不阻塞读。原理是每行维护多个历史版本（通过 undo log 串联），读操作根据 ReadView 选择可见版本。Undo Log 版本链工作流程：①事务 UPDATE 一行时，先把旧值写入 undo log；②在数据页写新值，`DB_TRX_ID` 更新为当前事务 ID，`DB_ROLL_PTR` 指向新写的 undo log；③多次更新同一行，undo log 通过 `DB_ROLL_PTR` 串成链表；④读操作沿 `DB_ROLL_PTR` 遍历链表，找到对当前 ReadView 可见的版本返回。事务提交后，undo log 由 Purge 线程在无任何活跃事务需要时清理。
+
+**追问：insert undo 和 update undo 有什么区别？** insert undo 在事务提交后立即可清理（插入的行对其他事务不可见，无需保留旧版本）；update undo 必须等 Purge 线程确认无活跃事务的 ReadView 需要它才能清理——这是长事务导致 undo 膨胀的根因。
 
 ### Q2: RR 下幻读完全解决了吗？举一个还能幻读的例子
 
