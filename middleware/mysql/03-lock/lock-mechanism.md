@@ -237,6 +237,7 @@ sequenceDiagram
     participant T1 as 事务 A（长事务 SELECT）
     participant T2 as 事务 B（DDL ALTER）
     participant T3 as 事务 C（SELECT）
+    participant T4 as 事务 D（后续 SELECT）
     participant DB as InnoDB
     
     T1->>DB: BEGIN; SELECT * FROM t（持有 MDL_READ）
@@ -314,9 +315,9 @@ flowchart LR
 | 行锁 | `lock0lock.cc` 的 `lock_rec_lock()` | 行级锁授予 |
 | 意向锁 | `lock0lock.cc` 的 `lock_table()` | 表级意向锁 |
 
-**死锁检测入口**：`lock_deadlock_check_recursive` 沿等待图（wait-for graph）深度遍历，发现环即报死锁。victim 选择策略在 `lock_deadlock_select_victim` 中，优先回滚 undo 量少的事务（回滚代价小）。
+**死锁检测入口**：`lock_deadlock_check_recursive` 沿等待图（wait-for graph）深度遍历，发现环即报死锁。victim 选择策略在 `lock_deadlock_select_victim` 中，优先回滚 undo 量少的事务（回滚代价小）。8.0 将死锁检测拆分到独立文件 `storage/innobase/lock/lock0deadlock.cc`，主锁系统仍在 `lock0lock.cc`。
 
-**锁队列的管理**：每个行的锁请求按 FIFO 排队在 `lock_rec_queue` 中。S 锁与 S 锁兼容可同时授予，X 锁与任何锁互斥需排队。插入意向锁的排队优先级低于已排队的 Gap Lock——这是为什么 Gap Lock 会阻塞后续插入的底层机制。
+**锁队列的管理**：每个行的锁请求按 FIFO 排队。InnoDB 通过 `lock_t` 结构链表 + lock hash 哈希表管理行锁，按 `(space, page_no, heap_no)` 检索。S 锁与 S 锁兼容可同时授予，X 锁与任何锁互斥需排队。插入意向锁的排队优先级低于已排队的 Gap Lock——这是为什么 Gap Lock 会阻塞后续插入的底层机制。
 
 ### 2.9 锁的监控与排查
 
@@ -573,7 +574,7 @@ public void transfer(Long fromId, Long toId, BigDecimal amount) {
 **追问链**：
 - Q: 死锁检测回滚哪个事务？ → undo 量少的（回滚代价小），在 `lock_deadlock_select_victim` 中决定。
 - Q: 死锁检测有性能代价吗？ → 高并发下检测消耗 CPU，极端场景可关检测 + 设短超时（`innodb_lock_wait_timeout=5`）。
-- Q: 如何监控死锁频率？ → `SHOW GLOBAL STATUS LIKE 'Innodb_deadlocks'` 或 Prometheus 采集。
+- Q: 如何监控死锁频率？ → 开启 `innodb_print_all_deadlocks=ON` 后从 error log 解析死锁记录，或 Prometheus 采集应用层 `DeadlockLoserDataAccessException` 计数。
 - Q: Gap Lock 导致的死锁怎么避免？ → 切 RC（无 Gap Lock）或走唯一索引（退化为 Record Lock）。
 - Q: 死锁后业务怎么处理？ → 捕获 `DeadlockLoserDataAccessException`，指数退避重试。
 
