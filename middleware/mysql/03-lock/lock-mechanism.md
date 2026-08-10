@@ -527,11 +527,31 @@ SHOW ENGINE INNODB STATUS\G
 
 ```
 *** (1) TRANSACTION:
+TRANSACTION 12345, ACTIVE 2 sec starting index read
+mysql tables in use 1, locked 1
+LOCK WAIT 3 lock struct(s), heap size 1136, 2 row lock(s)
+MySQL thread id 8, OS thread handle 0x7f, query id 100 localhost root updating
 UPDATE account SET balance=balance-100 WHERE id=2  -- 事务 A 等 id=2
-*** (1) HOLDS THE LOCK(S): id=1  -- 事务 A 持有 id=1
+
+*** (1) HOLDS THE LOCK(S):
+RECORD LOCKS space id 50 page no 3 n bits 72 index PRIMARY of table `test`.`account`
+trx id 12345 lock_mode X locks rec but not gap  -- 事务 A 持有 id=1 的 Record Lock
+Record lock, heap no 2 PHYSICAL RECORD: n_fields 3; compact format; ...
+
+*** (1) WAITING FOR THIS LOCK TO BE GRANTED:
+RECORD LOCKS space id 50 page no 3 n bits 72 index PRIMARY of table `test`.`account`
+trx id 12345 lock_mode X locks rec but not gap waiting  -- 等待 id=2 的 Record Lock
+
 *** (2) TRANSACTION:
+TRANSACTION 12346, ACTIVE 2 sec starting index read
 UPDATE account SET balance=balance+100 WHERE id=1  -- 事务 B 等 id=1
-*** (2) HOLDS THE LOCK(S): id=2  -- 事务 B 持有 id=2
+
+*** (2) HOLDS THE LOCK(S):
+trx id 12346 lock_mode X locks rec but not gap  -- 事务 B 持有 id=2
+
+*** (2) WAITING FOR THIS LOCK TO BE GRANTED:
+trx id 12346 lock_mode X locks rec but not gap waiting  -- 等待 id=1
+
 *** WE ROLL BACK TRANSACTION (2)  -- victim 是事务 B（undo 少）
 ```
 
