@@ -235,6 +235,8 @@
 
 **答**：5.6 前 DDL 会锁表；5.6+ 引入 Online DDL，多数加列/加索引支持 `inplace` + `nolock`，执行期间可读写。但大表（千万行+）即使 Online DDL 仍有风险：①建索引需扫全表 + 排序，耗时长，占用 buffer pool 与 IO；②开始与结束阶段短暂 MDL 锁，可能阻塞线上；③ row copy 期间 redo 暴涨。生产做法：①用 **pt-online-schema-change** 或 **gh-ost** 工具，建影子表 + 触发器同步增量，影子表建好后 rename 切换，全程不锁；②业务低峰执行；③分批次（如按分区）；④8.0 的 instant DDL（加列到末尾）秒级完成。
 
+**追问：DDL 前为什么要检查长事务？** DDL 需 MDL_WRITE 锁，若存在长事务持有 MDL_READ，DDL 排队等待；后续所有 DML 因 MDL 队列 FIFO 排在 DDL 后面也被阻塞——一个长事务 + 一个 DDL = 全表卡死。所以 DDL 前必须 `SELECT * FROM information_schema.innodb_trx WHERE TIME_TO_SEC(TIMEDIFF(NOW(), trx_started)) > 60` 检查无长事务，或设 `lock_wait_timeout=30` 缩短 MDL 等待超时避免卡死。
+
 **追问：gh-ost 和 pt-osc 选哪个？** gh-ost 优先——不用触发器（用 binlog 解析同步增量），对主库压力小，可暂停/恢复，有流量控制（`throttle-control-replicas` 监控从库延迟）。pt-osc 成熟但用触发器，高并发下触发器有性能开销。有外键时 pt-osc 有限支持，gh-ost 不支持外键需先处理。
 
 **关联**：→ [查询优化与执行计划](./04-query/query-optimization.md)
