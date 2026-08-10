@@ -173,6 +173,8 @@
 
 **答**：死锁是两事务互相等待对方持有的锁。InnoDB 自动死锁检测（`innodb_deadlock_detect=ON`）发现环后回滚 undo 量少的事务。排查：`SHOW ENGINE INNODB STATUS` 看 `LATEST DETECTED DEADLOCK` 段，含两事务持有的锁与等待的锁、执行的 SQL。避免：①事务尽量短小，快速提交；②按固定顺序访问表与行（如按主键升序加锁），避免交叉；③大事务拆小；④FOR UPDATE 改用乐观锁；⑤合理索引避免锁升级为表锁；⑥RC 隔离级别下 Gap Lock 少，死锁概率低。`innodb_lock_wait_timeout` 控制锁等待超时。
 
+**追问：死锁检测有性能代价吗？** 高并发下死锁检测会消耗 CPU（每个等待的事务都检测循环等待图），极端高并发（数百连接竞争同一行）检测开销可能成为瓶颈。可关闭检测（`innodb_deadlock_detect=OFF`）+ 设短超时（`innodb_lock_wait_timeout=5`）让超时回滚代替检测，但牺牲死锁响应速度。生产通常保持开启，仅在确认死锁检测成为瓶颈时关闭。
+
 **关联**：→ [锁机制](./03-lock/lock-mechanism.md)
 
 ### Q20: 乐观锁和悲观锁怎么选？🔗
