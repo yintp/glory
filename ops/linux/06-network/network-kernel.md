@@ -96,7 +96,7 @@ iptables 把规则按两个维度组织：**表（table）**按功能分（raw/m
 | 链 \ 表 | raw | mangle | nat | filter |
 |---------|-----|--------|-----|--------|
 | PREROUTING | ✓ | ✓ | ✓（DNAT） | |
-| INPUT | | ✓ | ✓（SNAT 内部） | ✓ |
+| INPUT | | ✓ | ✓（DNAT 本机反射） | ✓ |
 | FORWARD | | ✓ | | ✓ |
 | OUTPUT | ✓ | ✓ | ✓（DNAT 本地） | ✓ |
 | POSTROUTING | | ✓ | ✓（SNAT） | |
@@ -125,7 +125,8 @@ stateDiagram-v2
 | ESTABLISHED | 连接已建立（双向通信过） | 握手完成后的数据包 |
 | RELATED | 与已有连接相关联（如 FTP 数据通道、ICMP 错误） | FTP 20 端口、ICMP 不可达 |
 | INVALID | 无法识别的异常包（先发 ACK 无对应连接） | 乱序/伪造包 |
-| UNREPLY（可选） | NEW 的反方向，等回应 | 未收到回应的 SYN |
+
+> **`[UNREPLIED]` 是 conntrack 表项的标志而非独立状态**：表示 NEW 状态下只见到单向流、尚未见到反向流量。对应地，`[ASSURED]` 表示已确认双向通信。两者都出现在 `/proc/net/nf_conntrack` 表项的尾部标志位中，但不是 conntrack 状态机的独立状态——标准状态只有上表四种。
 
 **conntrack 表**：内核维护一张哈希表，每条表项记录四元组、状态、超时时间、流量统计。查看 `/proc/net/nf_conntrack`：
 
@@ -566,8 +567,8 @@ flowchart LR
 ```bash
 # 1. 看监听端口的 accept queue 状态
 $ ss -lnt | grep :8080
-LISTEN 145 100  0.0.0.0:8080  0.0.0.0:*
-#       ^^^ Recv-Q=145 已超过 Send-Q=100（backlog） → accept queue 溢出
+LISTEN 98 100  0.0.0.0:8080  0.0.0.0:*
+#       ^^^ Recv-Q=98 接近 Send-Q=100（backlog） → accept queue 即将溢出
 
 # 2. 看全连接队列溢出统计
 $ netstat -s | grep -i 'overflow'
