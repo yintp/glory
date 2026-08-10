@@ -111,6 +111,8 @@
 
 **答**：RC（读已提交）**每条 SELECT** 都生成新 ReadView，所以能看到别的事务已提交的最新数据，导致不可重复读。RR（可重复读）在**事务首次快照读**时生成 ReadView 并复用到事务结束，后续所有快照读都用同一 ReadView，所以可重复读。差异本质：ReadView 复用与否。当前读不走 ReadView，始终读最新已提交版本。这也解释了为什么 RR 下事务第一条 SELECT 之前别的事务提交的数据可见，之后提交的不可见。
 
+**追问：8.0 为什么很多公司从 RR 切 RC？** 三个原因：①8.0 默认 `binlog_format=row`，RC 下 row 格式主从复制也安全，RR 的历史优势消失；②RC 无 Gap Lock（除外键），锁范围小、死锁概率低，高并发写入更友好；③RC 每次读最新已提交数据，对"读后写"场景更直觉。代价是不防幻读，需应用层用乐观锁或 `SELECT FOR UPDATE` 补偿。
+
 **关联**：→ [事务与 MVCC](./02-transaction/transaction-and-mvcc.md)
 
 ### Q14: 为什么 MySQL 默认 RR？8.0 后为什么很多公司改 RC？🔗
@@ -168,6 +170,8 @@
 ### Q21: Explain 各字段含义？type 有哪些级别？🔗
 
 **答**：核心字段：**id**（执行顺序，越大越先）、**select_type**（SIMPLE/PRIMARY/SUBQUERY）、**table**、**type**（访问类型，性能关键）、**possible_keys**（可能用的索引）、**key**（实际用的索引）、**key_len**（索引使用长度）、**rows**（预估扫描行数）、**Extra**（额外信息）。type 从好到差：`system` > `const`（主键/唯一索引等值）> `eq_ref`（JOIN 主键/唯一等值）> `ref`（非唯一索引等值）> `range`（范围）> `index`（扫整棵索引树）> `ALL`（全表扫）。生产底线：type 至少 `range`，严禁 `ALL`。
+
+**追问：Explain 的 rows 和 filtered 怎么配合看？** `rows` 是优化器估算的扫描行数，`filtered` 是过滤后剩余比例，实际返回行数 ≈ `rows × filtered / 100`。若 `rows=1000` 且 `filtered=1%`，说明扫描 1000 行只返回 10 行——索引选择性不好，需建更精确的联合索引。8.0 可用 `EXPLAIN ANALYZE` 看实际执行耗时与行数，验证估算准确度。
 
 **关联**：→ [查询优化与执行计划](./04-query/query-optimization.md)
 
