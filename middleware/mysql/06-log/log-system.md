@@ -115,7 +115,7 @@ Purge 线程负责清理 History 链中不再被任何活跃事务快照引用�
 
 排查方法：①`information_schema.innodb_trx` 查 `trx_started`、`trx_rows_modified` 找长事务；②`SHOW ENGINE INNODB STATUS` 看 `History list length`；③`information_schema.innodb_metrics` 查 `undo_log_truncations`（truncate 次数）。
 
-解决：①及时提交事务，避免长连接中开启事务不关闭；②拆分大事务为小事务（如批量更新改为分批）；③监控长事务告警（`innodb_kill_idle_transaction` 或应用层超时）；④8.0 开启 `innodb_undo_log_truncate=ON` 自动 truncate。
+解决：①及时提交事务，避免长连接中开启事务不关闭；②拆分大事务为小事务（如批量更新改为分批）；③监控长事务告警（`information_schema.innodb_trx` 查超时事务或应用层 `@Transactional(timeout=30)`）；④8.0 开启 `innodb_undo_log_truncate=ON` 自动 truncate。
 
 **源码路径**：`storage/innobase/trx/trx0undo.cc`（Undo Log 管理）、`storage/innobase/trx/trx0purge.cc`（Purge 线程）、`storage/innobase/trx/trx0rseg.cc`（Rollback Segment）、`storage/innobase/trx/trx0rec.cc`（Undo 记录解析）。
 
@@ -187,7 +187,7 @@ InnoDB 的修改以 Mini-Transaction（MTR）为单位批量写入 Redo Log Buff
 
 **innodb_flush_method 与 Redo Log**：`innodb_flush_method=O_DIRECT`（生产推荐）时，数据页绕过 OS Cache 直接写磁盘（避免 Buffer Pool 与 OS Cache 的 double buffer），但 Redo Log 仍走 OS Page Cache（`fsync` 刷盘），利用 OS Cache 的顺序写优化。若用 `O_DIRECT` 对 Redo Log 也绕过 OS Cache，反而降低性能（失去顺序写合并优化）。
 
-**源码路径**：`storage/innobase/log/log0log.cc`（Redo Log 核心逻辑）、`storage/innobase/log/log0sync.cc`（刷盘同步）、`storage/innobase/log/log0recv.cc`（崩溃恢复重放）、`storage/innobase/log/log0write.cc`（Redo Log 写入）。
+**源码路径**：`storage/innobase/log/log0log.cc`（Redo Log 核心逻辑，8.0.30 后拆分为 `log0buf.cc`/`log0write.cc`/`log0files.cc`）、`storage/innobase/log/log0sync.cc`（刷盘同步）、`storage/innobase/log/log0recv.cc`（崩溃恢复重放）、`storage/innobase/log/log0write.cc`（Redo Log 写入）。
 
 ### 2.3 Binlog（归档日志）
 
@@ -249,7 +249,7 @@ Binlog 的两大作用：①**主从复制**——从库通过拉取主库 Binlo
 
 **Binlog 的校验**：8.0 默认开启 Binlog 校验（`binlog_checksum=CRC32`），每个 Event 附带 CRC32 校验和，从库接收时校验，防止网络传输错误。崩溃恢复时也校验 Binlog 完整性，损坏的 Event 会被丢弃。
 
-**Binlog 与事务隔离级别的关系**：Binlog 记录的是已提交事务的变更，与隔离级别无关（无论 RC/RR，只有提交的事务才写 Binlog）。但隔离级别影响 Binlog 的内容：①RC 下事务内的多次修改只记最终值（中间修改被覆盖）；②RR 下同理。注意：RC 隔离级别下 Binlog 的 STATEMENT 格式可能导致主从不一致（锁释放早，从库回放时可能读到不同数据），因此 RC 必须用 ROW 格式。8.0 默认 ROW，故 RC 可用。
+**Binlog 与事务隔离级别的关系**：Binlog 记录的是已提交事务的变更，与隔离级别无关（无论 RC/RR，只有提交的事务才写 Binlog）。但隔离级别影响 Binlog 的内容：①RC 下事务内的多次修改只记最终值（中间修改被覆盖）；②RR 下同理。注意：RC 隔离级别下 Binlog 的 STATEMENT 格式可能导致主从不一致（锁释放早，从库回放时可能读到不同数据），因此 RC 下建议用 ROW 格式。8.0 默认 ROW，故 RC 可安全使用。
 
 **Binlog 与触发器**：①STATEMENT 格式——触发器内的 SQL 不记 Binlog，从库不会执行触发器（主从触发器逻辑需一致）；②ROW 格式——记录触发器导致的行变更，从库直接应用行变更，不执行触发器。ROW 格式下主从触发器可以不同（从库不执行触发器，只应用行变更）。生产建议 ROW 格式，避免触发器导致的主从不一致。
 
@@ -357,7 +357,7 @@ sequenceDiagram
 
 **XID 的作用**：XID 是事务的唯一标识，在 Redo Log prepare、Binlog、Redo Log commit 三处都记录。崩溃恢复时，InnoDB 扫描 Redo Log 找到 prepare 状态的事务，提取 XID，再去 Binlog 中查找该 XID 是否已完整写入，以此决定提交或回滚。XID 的匹配是两阶段提交崩溃恢复的核心。
 
-**prepare 状态的意义**：Redo Log prepare 表示"事务已准备好提交，但还未最终 commit"。此时 Redo Log 已 fsync（持久化），若崩溃不会丢失修改记录。prepare 之后写 Binlog，若 Binlog 写成功则可以安全 commit；若 Binlog 写失败则回滚（Redo Log prepare 被丢弃，用 Undo 回滚数据）。prepare 状态是两阶段提交的"中间态"，是崩溃恢复判断的关键。
+**prepare 状态的意义**：Redo Log prepare 表示"事务已准备好提交，但还未最终 commit"。此时 Redo Log 已 fsync（持久化），若崩溃不会丢失修改记录。prepare 之后写 Binlog，若 Binlog 写成功则可以安全 commit；若 Binlog 写失败则回滚（Redo Log prepare 被丢弃，用 Undo 回滚数据）。prepare 状态是两阶段提交的"中间态"，是崩溃恢复判断的关键。**注意**：组提交流水线下（见 2.6.1），prepare 的 fsync 与 Binlog 的 fsync 合并到 Sync Stage 批量执行，不再单独 fsync——但逻辑等价（最终都保证 Redo prepare 与 Binlog 都已持久化后才写 commit）。
 
 **commit 状态的意义**：Redo Log commit 是事务提交的最终标志。commit 后事务对其他事务可见，且不可回滚。commit 状态的写入是轻量的（只改 Redo Log 中的事务状态位），但必须在 Binlog fsync 之后，保证"commit 了则 Binlog 一定完整"。崩溃恢复时遇到 commit 状态直接提交，无需检查 Binlog。
 
@@ -374,7 +374,7 @@ sequenceDiagram
 
 **恢复完整流程**：①重放 Redo Log（恢复所有已写入 Redo Log 的修改到数据页，包括已提交和未提交的）；②扫描 Undo Log，回滚未提交事务（处于 prepare 且 Binlog 未写的事务）；③此时数据页已一致，可对外提供服务。恢复时间取决于 Redo Log 量与 Undo 量，通常几秒到几分钟，大库可能几十分钟。8.0 优化了恢复速度（并行重放 Redo）。
 
-**恢复的优化**：①8.0 支持并行重放 Redo Log（多线程并行恢复不同页），加速恢复；②`innodb_log_checkpoint_every` 控制 Checkpoint 频率，频繁 Checkpoint 可减少崩溃时需重放的 Redo 量（但增加运行时刷盘压力）；③Redo Log Archiving（8.0.17+）可将 Redo Log 归档到备份目录，用于物理备份一致性。详见 [存储引擎底层](../05-storage/innodb-engine.md) 的崩溃恢复章节。
+**恢复的优化**：①8.0 支持并行重放 Redo Log（多线程并行恢复不同页），加速恢复；②通过 `innodb_adaptive_flushing`、`innodb_io_capacity`、`innodb_max_dirty_pages_pct` 等参数控制 Checkpoint 推进速度，频繁 Checkpoint 可减少崩溃时需重放的 Redo 量（但增加运行时刷盘压力）；③Redo Log Archiving（8.0.17+）可将 Redo Log 归档到备份目录，用于物理备份一致性。详见 [存储引擎底层](../05-storage/innodb-engine.md) 的崩溃恢复章节。
 
 #### 2.5.4 XA 与两阶段提交的关系
 
@@ -454,7 +454,7 @@ Binlog 是 Server 层逻辑日志（SQL/行变更），用于主从复制与归�
 
 **重放 Redo 的幂等性**：Redo Log 是物理日志，记录"页号 X 偏移 Y 写入 Z"，重放时直接覆盖写入，多次重放结果一致（幂等）。因此重放时无需判断事务是否已提交，全部重放，后续用 Undo 回滚未提交事务。若 Redo 非幂等（如逻辑日志），重放可能产生错误结果。
 
-**崩溃恢复与 Checkpoint 的关系**：崩溃恢复只需重放 Checkpoint LSN 之后的 Redo Log（之前的已刷盘）。Checkpoint 频率越高，崩溃时需重放的 Redo 越少，恢复越快，但运行时刷盘压力越大。生产通过调整 `innodb_log_checkpoint_every` 平衡。
+**崩溃恢复与 Checkpoint 的关系**：崩溃恢复只需重放 Checkpoint LSN 之后的 Redo Log（之前的已刷盘）。Checkpoint 频率越高，崩溃时需重放的 Redo 越少，恢复越快，但运行时刷盘压力越大。生产通过调整 `innodb_adaptive_flushing`、`innodb_io_capacity`、`innodb_max_dirty_pages_pct` 等参数平衡 Checkpoint 推进速度与运行时性能。
 
 **崩溃恢复的盲区**：①若 Redo Log 本身损坏（磁盘坏道），无法恢复，需用备份；②若数据页损坏（页撕裂），用 Doublewrite Buffer 恢复；③若 Binlog 损坏，处于 prepare 状态的事务可能误判（Binlog 已写但损坏，被当作未写而回滚），需定期备份 Binlog。
 
@@ -617,7 +617,7 @@ Spring 的 `@Transactional` 定义了 7 种事务传播行为（REQUIRED/REQUIRE
 
 **追问链 3**：Q: 恢复期间数据库能用吗？ → 不能。crash recovery 期间 InnoDB 处于恢复状态，拒绝连接（连接报错 `InnoDB is in read only mode`）。恢复时间取决于 Redo Log 量（未刷盘的修改量）与 Undo 量（未提交事务数），通常几秒到几分钟，大库可能几十分钟。8.0 优化了恢复速度（并行重放 Redo）。生产建议 Redo Log 容量控制在 1 小时写入量以内，平衡刷盘频率与恢复时间。
 
-**追问链 4**：Q: 如何减少崩溃恢复时间？ → ①控制 Redo Log 容量（避免过大），减少重放量；②`innodb_log_checkpoint_every` 调大 Checkpoint 频率，崩溃时需重放的 Redo 减少（但增加运行时刷盘压力）；③8.0 启用并行重放 Redo（`innodb_parallel_read_threads`）；④避免长事务（减少 Undo 回滚量）；⑤定期做物理备份（XtraBackup），崩溃后可从备份快速恢复而非全量重放 Redo。
+**追问链 4**：Q: 如何减少崩溃恢复时间？ → ①控制 Redo Log 容量（避免过大），减少重放量；②调大 `innodb_io_capacity` 让 Checkpoint 更积极推进，崩溃时需重放的 Redo 减少（但增加运行时刷盘压力）；③8.0 默认并行重放 Redo 加速恢复；④避免长事务（减少 Undo 回滚量）；⑤定期做物理备份（XtraBackup），崩溃后可从备份快速恢复而非全量重放 Redo。
 
 **追问链 5**：Q: 崩溃恢复会不会丢数据？ → 双 1 配置（`innodb_flush_log_at_trx_commit=1` + `sync_binlog=1`）下不丢已提交数据。非双 1 配置可能丢：①`innodb_flush_log_at_trx_commit=0/2` 时 OS 崩溃丢未 fsync 的 Redo；②`sync_binlog=0/N` 时 OS 崩溃丢未 fsync 的 Binlog。核心库必须双 1。
 
@@ -627,7 +627,7 @@ Spring 的 `@Transactional` 定义了 7 种事务传播行为（REQUIRED/REQUIRE
 
 **设计追问链**：
 
-1. **半同步复制**：主库写入后至少等待一个从库收到 Binlog 才返回客户端，降低延迟概率。但牺牲主库写入性能（等待从库 ACK），且从库收到 Binlog 不等于回放完成，仍可能有延迟。配置 `rpl_semi_sync_master_enabled=ON` + `rpl_semi_sync_master_timeout=60000`（60s 超时降级为异步）。
+1. **半同步复制**：主库写入后至少等待一个从库收到 Binlog 才返回客户端，降低延迟概率。但牺牲主库写入性能（等待从库 ACK），且从库收到 Binlog 不等于回放完成，仍可能有延迟。配置 `rpl_semi_sync_master_enabled=ON` + `rpl_semi_sync_master_timeout=60000`（默认 10s，生产建议调大至 60s 超时降级为异步）。
 2. **并行复制**：8.0 开启 `binlog_transaction_dependency_tracking=WRITESET` + `slave_parallel_workers=16`，提升从库回放并行度，减少延迟。适用于写入分散的场景。
 3. **读写分离策略**：对一致性要求不高的读走从库（容忍秒级延迟），要求强一致的走主库。实现：Spring 中用 `@DS` 或 `AbstractRoutingDataSource` 动态切换数据源，AOP 根据方法注解决定走主还是走从。
 4. **强制走主**：关键业务（如支付后查询）强制读主库，确保读到最新数据。实现：在业务方法上标注 `@Master` 注解，AOP 切换到主库数据源。配合缓存（Redis）缓解主库压力：支付后先写 Redis，查询先查 Redis 命中则返回，未命中再查主库。
