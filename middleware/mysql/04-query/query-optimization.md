@@ -374,7 +374,17 @@ SELECT * FROM orders WHERE status='PAID' AND id > #{last_id} ORDER BY id ASC LIM
 | filesort | `sql/filesort.cc` | 排序实现（单路/双路） |
 | Explain | `sql/explain_format.cc` | 执行计划输出 |
 
-**8.0 优化器改进**：8.0.20+ 引入 Hypergraph 优化器（`optimizer_switch=hypergraph_optimizer=on`），替代传统的贪心算法，支持更复杂的 JOIN 重排。
+**8.0 优化器改进**：8.0.20+ 引入 Hypergraph 优化器（`optimizer_switch=hypergraph_optimizer=on`），替代传统的贪心算法，支持更复杂的 JOIN 重排。8.0 默认仍用传统优化器，Hypergraph 作为可选特性逐步成熟。
+
+**优化器开关（optimizer_switch）**：8.0 有数十个优化器开关，常用的包括：
+- `index_merge=on`：索引合并（OR 条件用多个索引）
+- `index_condition_pushdown=on`：ICP 索引下推
+- `mrr=on`：MRR 多范围读
+- `block_nested_loop=on`：BNL 算法
+- `batched_key_access=off`：BKA（默认关，需显式开）
+- `using filesort=on`：filesort 优化
+
+查看：`SELECT @@optimizer_switch\G`。生产调优时一般保持默认，仅在特定场景针对性开关。
 
 ---
 
