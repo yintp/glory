@@ -158,6 +158,8 @@ flowchart LR
 
 事务 B 可以 INSERT id=7、id=12 等（间隙未锁），但不能 UPDATE/DELETE id=10。
 
+**唯一索引等值命中的特例——主键查找**：`SELECT * FROM t WHERE id=10 FOR UPDATE`（id 是主键）只加 Record Lock，这是最高效的加锁方式——锁一行、不锁间隙、不影响并发插入。业务中按主键 `FOR UPDATE` 是推荐的悲观锁姿势。
+
 **案例 2：唯一索引等值未命中**
 
 ```sql
