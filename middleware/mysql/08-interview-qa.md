@@ -89,6 +89,8 @@
 
 **答**：A 原子性——事务要么全做要么全不做，由 **Undo Log** 实现（回滚时按 undo 反向操作）；D 持久性——提交后即使宕机不丢，由 **Redo Log** 实现（crash 后重放 redo）；I 隔离性——并发事务互不干扰，由 **锁 + MVCC** 实现（写写用锁、读写用 MVCC）；C 一致性——事务执行前后数据合法，由 A+I+D 共同保证（应用层约束也参与）。关键认知：ACID 中 C 是目标，AID 是手段，一致性是 AID 三者协同 + 业务约束的最终结果。
 
+**追问：InnoDB 怎么保证 ACID 四特性的？** A=Undo Log（回滚时反向补偿）+ 事务内部所有操作原子性；C=AID+DB 约束（主键/外键/唯一索引/检查约束）+ 应用层校验；I=锁（写写串行）+ MVCC（读写并发）；D=Redo Log（WAL 先写日志再写数据页）+ `innodb_flush_log_at_trx_commit=1`（每事务 fsync）。四者通过两阶段提交（Redo prepare → Binlog → Redo commit）协同，保证 crash 后 AID 都满足。
+
 **关联**：→ [事务与 MVCC](./02-transaction/transaction-and-mvcc.md)
 
 ### Q10: 并发问题有哪些？分别对应什么隔离级别？🔗
