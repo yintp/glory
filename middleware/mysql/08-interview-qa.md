@@ -141,6 +141,8 @@
 
 **答**：表级锁包括：**表锁**（`LOCK TABLES`，显式）、**MDL**（元数据锁，DDL/DML 互斥）、**意向锁**（IS/IX，行锁前先标表级意向，快速判断是否有冲突）。行级锁包括：**Record Lock**（锁单行记录）、**Gap Lock**（锁行间间隙，防 INSERT）、**Next-Key Lock**（Record + Gap，左开右闭）。还有**插入意向锁**（INSERT 前申请，与 Gap Lock 冲突、与其他插入意向锁不冲突）。全局锁 `FLUSH TABLES WITH READ LOCK` 用于备份。InnoDB 行锁基于索引，无索引时退化为表锁。
 
+**追问：意向锁的作用是什么？** 意向锁（IS/IX）是表级锁，事务加行锁前先在表上加意向锁，让"加表锁"的操作能 O(1) 判断是否有行锁（只需检查表上是否有意向锁，不用遍历所有行锁）。意向锁之间互相兼容（IS/IS/IX/IX 不冲突），只与表级 S/X 锁有冲突关系——它是行锁的快速冲突检测优化，不参与行级并发控制。
+
 **关联**：→ [锁机制](./03-lock/lock-mechanism.md)
 
 ### Q16: Record/Gap/Next-Key Lock 分别是什么？🔗
