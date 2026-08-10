@@ -165,7 +165,7 @@ EXPLAIN ANALYZE SELECT * FROM orders WHERE user_id = 100 AND status = 'PAID';
 | `Using index condition` | ICP 索引下推 | ✅ 好 | 5.6+ 已优化 |
 | `Using temporary` | 用了临时表 | ❌ 需优化 | GROUP BY / DISTINCT / UNION 常见 |
 | `Using filesort` | 额外排序 | ❌ 需优化 | 加排序字段到索引 |
-| `Using join buffer` | BNL/BKA | ⚠️ 被驱动表无索引 | 给被驱动表 JOIN 列加索引 |
+| `Using join buffer` | BNL/BKA（Extra 括号标注算法：`Block Nested Loop` 或 `Batched Key Access`） | ⚠️ 被驱动表无索引 | 给被驱动表 JOIN 列加索引 |
 
 **`Using filesort` 不一定是磁盘排序**：filesort 在 `sort_buffer_size` 足够时是内存排序，不够才落临时表（磁盘排序）。但无论内存还是磁盘，都意味着**索引未覆盖排序字段**，需额外排序步骤——加 `ORDER BY` 字段到联合索引可消除。
 
@@ -182,7 +182,7 @@ EXPLAIN ANALYZE SELECT * FROM orders WHERE user_id = 100 AND status = 'PAID';
 | `rows` | 优化器估算的扫描行数 | 判断扫描量，越小越好 |
 | `filtered` | 过滤后剩余比例（%） | `实际返回行数 ≈ rows × filtered / 100` |
 
-**`filtered` 的意义**：8.0 默认开启 `EXPLAIN FORMAT=JSON` 会输出更精确的 `rows_probed`。`filtered=10%` 意味着扫描 1000 行但只有 100 行满足条件——说明索引选择性不好，可考虑覆盖索引或调整查询。
+**`filtered` 的意义**：`EXPLAIN FORMAT=JSON` 会输出 `rows_probed_per_loop` 等详细字段。`filtered=10%` 意味着扫描 1000 行但只有 100 行满足条件——说明索引选择性不好，可考虑覆盖索引或调整查询。
 
 ### 2.5 JOIN 的实现
 
@@ -281,7 +281,7 @@ SELECT * FROM orders WHERE user_id=1 ORDER BY create_time;
 
 **filesort 的优先队列优化**：8.0 对带 `LIMIT` 的排序用优先队列（堆排序）而非全排序——只需维护 TOP N 的堆，而非对全部数据排序。例如 `ORDER BY score DESC LIMIT 10`，只需维护 10 元素的最大堆，扫描一遍数据即可，复杂度 O(N log 10) 而非 O(N log N)。
 
-**GROUP BY 优化**：8.0 默认 `group_by_optimizer=ON`，GROUP BY 走索引有序时无需临时表（`Using index for group-by`）。若 GROUP BY 字段无索引，用临时表（`Using temporary`）——可通过加联合索引消除。
+**GROUP BY 优化**：8.0 GROUP BY 默认不再隐式排序（5.7 及之前 `GROUP BY` 隐含 `ORDER BY`），走索引有序时无需临时表（`Using index for group-by`）。若 GROUP BY 字段无索引，用临时表（`Using temporary`）——可通过加联合索引消除。
 
 ### 2.8 分页优化
 
@@ -382,7 +382,7 @@ SELECT * FROM orders WHERE status='PAID' AND id > #{last_id} ORDER BY id ASC LIM
 - `mrr=on`：MRR 多范围读
 - `block_nested_loop=on`：BNL 算法
 - `batched_key_access=off`：BKA（默认关，需显式开）
-- `using filesort=on`：filesort 优化
+- `hash_join=on`：Hash Join（8.0.18+，替代 BNL 的等值连接优化）
 
 查看：`SELECT @@optimizer_switch\G`。生产调优时一般保持默认，仅在特定场景针对性开关。
 
