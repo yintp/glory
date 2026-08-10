@@ -48,34 +48,33 @@ Linux 安全的本质是**谁能对谁做什么**的一套判定链：进程发�
 
 ### 2.1 安全模型层次图
 
-Linux 安全不是单一机制，而是多层叠加的判定链。一个系统调用进来后，依次经过 DAC → Capability → MAC → seccomp → LSM 各层，任一层拒绝即失败：
+Linux 安全不是单一机制，而是多层叠加的判定链。一个系统调用进来后，依次经过 seccomp → Capability → DAC → MAC 各层，任一层拒绝即失败（seccomp 在 syscall 入口最早执行，独立于 LSM；MAC 的 SELinux/AppArmor 基于 LSM hook 框架实现）：
 
 ```mermaid
 flowchart TD
-    SYSCALL[进程发起系统调用] --> DAC[第 1 层：DAC<br/>UGO rwx + ACL]
-    DAC -->|通过| CAP[第 2 层：Capability<br/>细分 root 权限]
-    CAP -->|通过| MAC[第 3 层：MAC<br/>SELinux / AppArmor]
-    MAC -->|通过| SECC[第 4 层：seccomp<br/>BPF 系统调用过滤]
-    SECC -->|通过| LSM[第 5 层：LSM hook<br/>安全模块挂载点]
-    LSM -->|通过| EXEC[内核执行]
-    DAC -->|拒绝| EACCES1[EPERM/EACCES]
-    CAP -->|拒绝| EACCES2[EPERM]
-    MAC -->|拒绝| EACCES3[EACCES + audit 日志]
+    SYSCALL[进程发起系统调用] --> SECC[第 1 层：seccomp<br/>BPF 系统调用过滤<br/>syscall 入口最早执行]
+    SECC -->|通过| CAP[第 2 层：Capability<br/>细分 root 权限]
+    CAP -->|通过| DAC[第 3 层：DAC<br/>UGO rwx + ACL]
+    DAC -->|通过| MAC[第 4 层：MAC<br/>SELinux / AppArmor<br/>基于 LSM hook 实现]
+    MAC -->|通过| EXEC[内核执行]
     SECC -->|拒绝| KILL[KILL/ERRNO]
-    LSM -->|拒绝| EACCES4[EPERM + audit]
+    CAP -->|拒绝| EACCES1[EPERM]
+    DAC -->|拒绝| EACCES2[EPERM/EACCES]
+    MAC -->|拒绝| EACCES3[EACCES + audit 日志]
 ```
 
 **层次关系认知**：
 
 | 层次 | 机制 | 判定对象 | 源码/配置 |
 |------|------|---------|----------|
-| 第 1 层 | DAC（UGO + ACL） | 文件 rwx 位 + ACL 条目 | `fs/attr.c`、`fs/posix_acl.c` |
+| 第 1 层 | seccomp | 系统调用号 + 参数 vs BPF 过滤器 | `kernel/seccomp.c` |
 | 第 2 层 | Capability | 进程 cap 集合 vs 操作所需 cap | `kernel/cred.c`、`security/commoncap.c` |
-| 第 3 层 | MAC（SELinux/AppArmor） | 进程 label/domain vs 客体 label/profile | `security/selinux/`、`security/apparmor/` |
-| 第 4 层 | seccomp | 系统调用号 + 参数 vs BPF 过滤器 | `kernel/seccomp.c` |
-| 第 5 层 | LSM hook | 各安全模块注册的 hook 函数 | `security/security.c`、`include/linux/lsm_hooks.h` |
+| 第 3 层 | DAC（UGO + ACL） | 文件 rwx 位 + ACL 条目 | `fs/attr.c`、`fs/posix_acl.c` |
+| 第 4 层 | MAC（SELinux/AppArmor） | 进程 label/domain vs 客体 label/profile | `security/selinux/`、`security/apparmor/`（底层基于 LSM hook 框架：`security/security.c`、`include/linux/lsm_hooks.h`） |
 
-> **关键认知**：DAC 是基础（先判 rwx），Capability 细分 root（判是否有所需 cap），MAC 叠加系统级策略（判 label 是否允许），seccomp 在 syscall 入口过滤（判调用号是否被禁），LSM 是供各安全模块挂载的 hook 框架。**SELinux/AppArmor 都基于 LSM hook 实现**，seccomp 则独立于 LSM（在 syscall 入口提前过滤）。`--privileged` 容器一次性禁用第 2～4 层，是容器安全最大禁区。
+> **LSM 不是独立一层**：LSM（Linux Security Module）是供 SELinux/AppArmor 等安全模块挂载的 hook 框架，本身不提供策略，MAC 层的判定实际由挂载的 SELinux/AppArmor 模块在 LSM hook 点执行。seccomp 则独立于 LSM，在 syscall 入口提前过滤（先于 capability/DAC/MAC 执行）。
+
+> **关键认知**：seccomp 在 syscall 入口最早过滤（判调用号是否被禁），独立于 LSM；Capability 细分 root（判是否有所需 cap）；DAC 是基础（判 rwx）；MAC 叠加系统级策略（判 label 是否允许），SELinux/AppArmor 都基于 LSM hook 框架实现（LSM 是 MAC 的实现底座，不是独立一层）。`--privileged` 容器一次性禁用第 1～4 层（seccomp + cap + DAC 绕过 + MAC），是容器安全最大禁区。
 
 ### 2.2 UGO 权限模型与特殊位
 
@@ -101,7 +100,7 @@ $ ls -l /usr/bin/passwd
 | SGID | 2 | `chmod g+s` | 可执行文件以**属组**身份运行；目录下新文件继承目录属组 | 共享目录、`/usr/bin/wall` |
 | Sticky | 1 | `chmod +t` | 目录下文件只有属主和 root 才能删 | `/tmp`、`/var/tmp` |
 
-**SUID 为什么危险**：SUID 程序以文件属主（常是 root）身份运行，一旦 SUID 程序有漏洞（如缓冲区溢出），攻击者就能以 root 身份执行任意代码。`find / -perm -4000 2>/dev/null` 列出所有 SUID 程序，是安全审计的第一步。Capability 机制正是为了替代 SUID——把"给全部 root 权限"细化为"只给所需 cap"。
+**SUID 为什么危险**：SUID 程序以文件属主（常是 root）身份运行，一旦 SUID 程序有漏洞（如缓冲区溢出），攻击者就能以 root 身份执行任意代码。`find / -perm -4000 2>/dev/null` 列出所有 SUID 程序，是安全审计的第一步。Capability 机制提供替代 SUID 的更细粒度方案——把"给全部 root 权限"细化为"只给所需 cap"（系统仍大量使用 SUID，Capability 并非完全替代，而是更安全的选项）。
 
 > **关联**：SUID 程序的文件权限位归 05 的 inode 字段，**SUID 的语义、风险、与 Capability 的替代关系**归 07。`/tmp` 的 Sticky bit 见 §4 的 Q9。
 
@@ -296,7 +295,7 @@ flowchart LR
 | `SECCOMP_RET_TRAP` | 发 SIGSYS 信号 |
 | `SECCOMP_RET_TRACE` | 交给 ptrace 处理 |
 
-**Docker 默认 seccomp profile**：Docker 内置白名单 profile（约 300 个 syscall 放行），禁了 `ptrace`、`mount`、`reboot`、`kexec_load`、`keyctl`、`bpf`（部分版本）等高危调用。`--security-opt seccomp=unconfined` 禁用 seccomp = 撤掉第 4 层防线，生产绝禁。
+**Docker 默认 seccomp profile**：Docker 内置白名单 profile（约 300 个 syscall 放行），禁了 `ptrace`、`mount`、`reboot`、`kexec_load`、`keyctl`、`bpf`（部分版本）等高危调用。`--security-opt seccomp=unconfined` 禁用 seccomp = 撤掉第 1 层防线，生产绝禁。
 
 **与 Capability 的区别**：Capability 管"有没有特权做某操作"（如能不能绑 <1024 端口），seccomp 管"能不能调这个系统调用"（如能不能 `mount`）。两者正交——有 `CAP_SYS_ADMIN` 但 seccomp 禁了 `mount`，仍调不了。
 
@@ -314,6 +313,47 @@ PAM（Pluggable Authentication Modules）是 Linux 的可插拔鉴权框架（�
 | account | 检查账户是否可用（过期/锁定/时间限制） | `pam_time.so`、`pam_access.so` |
 | session | 会话建立/销毁（挂载家目录、记日志） | `pam_mkhomedir.so`、`pam_lastlog.so` |
 | password | 修改密码 | `pam_unix.so` |
+
+**PAM 鉴权链流程**（程序调 PAM API 后，四阶段依次执行，任一 required/requisite 失败即整体失败）：
+
+```mermaid
+sequenceDiagram
+    participant APP as 程序<br/>(login/sshd/su/sudo)
+    participant PAM as libpam
+    participant MOD as PAM 模块链
+    participant SYS as 系统<br/>(/etc/shadow, account 库)
+
+    APP->>PAM: 调 pam_authenticate()
+    PAM->>MOD: 加载 /etc/pam.d/<服务> 的 auth 链
+    MOD->>SYS: 验密码（pam_unix.so）
+    SYS-->>MOD: ok / fail
+    alt 双因子
+        MOD->>SYS: 验 OTP（pam_google_authenticator.so）
+        SYS-->>MOD: ok
+    end
+    MOD-->>PAM: auth 结果
+    PAM-->>APP: auth 完成（成功才继续）
+
+    APP->>PAM: 调 pam_acct_mgmt()
+    PAM->>MOD: 执行 account 链
+    MOD->>SYS: 查账户过期/锁定/时间限制
+    SYS-->>MOD: ok / 拒
+    MOD-->>PAM: account 结果
+
+    APP->>PAM: 调 pam_open_session()
+    PAM->>MOD: 执行 session 链
+    MOD->>SYS: 挂家目录/记 lastlog/设 ulimit
+    MOD-->>PAM: session 已建立
+
+    Note over APP,SYS: 运行期用户操作
+
+    APP->>PAM: 调 pam_chauthtok()（用户改密码时）
+    PAM->>MOD: 执行 password 链
+    MOD->>SYS: 查密码强度 + 写 /etc/shadow
+    SYS-->>MOD: 改密完成
+    MOD-->>PAM: password 结果
+    PAM-->>APP: 鉴权链完成
+```
 
 **配置示例**（`/etc/pam.d/system-auth`）：
 
@@ -526,11 +566,11 @@ $ getcap /usr/bin/ping /usr/bin/newuidmap
 
 ### Q6：seccomp 是什么？Docker 的默认 seccomp 禁了什么？
 
-**参考答案**：见 §2.7。seccomp 是内核系统调用过滤机制，用 BPF 字节码在 syscall 入口过滤。两种模式：strict（只放 read/write/exit/sigreturn 4 个）、filter（BPF 按调用号+参数过滤）。**Docker 默认 seccomp profile** 是白名单（约 300 个 syscall 放行），禁了 `ptrace`、`mount`、`reboot`、`kexec_load`、`keyctl`、`bpf` 等高危调用。`--security-opt seccomp=unconfined` 禁用 seccomp = 撤掉纵深防御第 4 层，生产绝禁。**与 Capability 区别**：Capability 管"有没有特权做操作"，seccomp 管"能不能调这个系统调用"，两者正交。关联 `ops/docker/07-security`。
+**参考答案**：见 §2.7。seccomp 是内核系统调用过滤机制，用 BPF 字节码在 syscall 入口过滤。两种模式：strict（只放 read/write/exit/sigreturn 4 个）、filter（BPF 按调用号+参数过滤）。**Docker 默认 seccomp profile** 是白名单（约 300 个 syscall 放行），禁了 `ptrace`、`mount`、`reboot`、`kexec_load`、`keyctl`、`bpf` 等高危调用。`--security-opt seccomp=unconfined` 禁用 seccomp = 撤掉纵深防御第 1 层，生产绝禁。**与 Capability 区别**：Capability 管"有没有特权做操作"，seccomp 管"能不能调这个系统调用"，两者正交。关联 `ops/docker/07-security`。
 
 ### Q7：sudo 配置错了会有什么安全问题？
 
-**参考答案**：见 §2.9。常见高危配置：①`NOPASSWD: ALL`——免密执行任意命令，等于把 root 给了用户；②`appuser ALL=(root) /usr/bin/vim`——vim 内 `:!bash` 直接得 root shell（任何能执行 shell 的程序如 less/find/awk 都一样）；③通配符过宽——`/usr/bin/*` 让所有 /usr/bin 程序能 root 执行；④不用 `visudo` 编辑——语法错误导致 sudo 完全失效，连修都修不了（需单用户模式）。**加固**：①最小授权，只给具体命令；②`NOPASSWD` 只给脚本化场景且命令明确；③用 `visudo` 编辑并 `visudo -c` 校验；④排除能执行 shell 的程序（vim/less/find/awk/awk 等）。
+**参考答案**：见 §2.9。常见高危配置：①`NOPASSWD: ALL`——免密执行任意命令，等于把 root 给了用户；②`appuser ALL=(root) /usr/bin/vim`——vim 内 `:!bash` 直接得 root shell（任何能执行 shell 的程序如 less/find/awk 都一样）；③通配符过宽——`/usr/bin/*` 让所有 /usr/bin 程序能 root 执行；④不用 `visudo` 编辑——语法错误导致 sudo 完全失效，连修都修不了（需单用户模式）。**加固**：①最小授权，只给具体命令；②`NOPASSWD` 只给脚本化场景且命令明确；③用 `visudo` 编辑并 `visudo -c` 校验；④排除能执行 shell 的程序（vim/less/find/awk 等）。
 
 ### Q8：为什么 `su -` 和 `su` 不同？
 
