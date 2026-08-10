@@ -139,6 +139,8 @@
 
 **答**：**Record Lock** 锁索引上一条记录，防止别的事务 UPDATE/DELETE 该行。**Gap Lock** 锁两个记录之间的间隙（区间开区间），防止别的事务 INSERT 到间隙，只在 RR 隔离级别生效，RC 无 Gap Lock。**Next-Key Lock** = Record + 前面的 Gap，左开右闭 `(a, b]`，是 RR 下默认的行锁，既防改行又防插入，用于解决幻读。例如索引上有 5、10、15，对 10 加 Next-Key Lock 锁 `(5, 10]`。退化规则：唯一索引等值命中退化为 Record Lock，唯一索引等值未命中退化为 Gap Lock。
 
+**追问：为什么 RR 下需要 Gap Lock 而 RC 不需要？** RR 要求可重复读+防幻读，快照读靠 MVCC 天然防幻读，但当前读（`FOR UPDATE`/`UPDATE`/`DELETE`）需锁住间隙防止其他事务 INSERT 新行导致行数变化。RC 每次读最新已提交版本，不要求防幻读，所以无需 Gap Lock——这也是 RC 死锁概率低于 RR 的原因。8.0 切 RC 可大幅减少 Gap Lock 导致的死锁。
+
 **关联**：→ [锁机制](./03-lock/lock-mechanism.md)
 
 ### Q17: SELECT FOR UPDATE 锁的是行还是表？🔗
