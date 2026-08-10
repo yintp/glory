@@ -243,6 +243,8 @@
 
 **答**：WAL（Write-Ahead Logging，预写日志）——先写 redo log（顺序写）再写数据页（随机写），提交时只需 fsync redo log。设计原因：①**顺序写远快于随机写**——redo log 是追加写循环文件，磁盘顺序 IO 性能比随机 IO 高 1-2 个数量级；②**批量刷盘**——多个事务的 redo 可合并一次 fsync，把多次随机写数据页转为一次顺序写日志；③**crash recovery**——宕机后数据页可能未落盘，但 redo log 已落盘，重放即可恢复。`innodb_flush_log_at_trx_commit=1` 每事务 fsync 保不丢，=0 每秒刷（丢 1 秒），=2 每次写 OS buffer 每秒 fsync（OS 崩溃丢 1 秒）。
 
+**追问：redo log 满了会怎样？** redo log 是固定大小的循环文件（8.0.30 前用 `innodb_log_file_size` × `innodb_log_files_in_group`，8.0.30+ 用 `innodb_redo_log_capacity` 单一参数）。redo log 写满时 InnoDB 必须推进 Checkpoint——把 Buffer Pool 中脏页刷盘到 Checkpoint LSN，释放 redo 空间。此时所有写入操作会被阻塞等待 Checkpoint 完成，表现为业务写入卡顿。生产应监控 `redo log usage`，确保 Checkpoint 跟得上写入速度，避免"redo log full"导致的写入停顿。
+
 **关联**：→ [存储引擎底层](./05-storage/innodb-engine.md)
 
 ---
