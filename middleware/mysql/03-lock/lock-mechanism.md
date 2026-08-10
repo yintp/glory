@@ -342,6 +342,8 @@ JOIN information_schema.innodb_trx b ON b.trx_id = w.blocking_engine_transaction
 JOIN information_schema.innodb_trx r ON r.trx_id = w.requesting_engine_transaction_id;
 ```
 
+**锁等待的应急处理**：生产中遇到锁等待卡住全库时，可 `KILL <thread_id>` 阻塞事务释放锁——但需谨慎，被 kill 的事务会回滚。通过上述 SQL 定位 `blocking_thread` 后 `KILL`，是最快的止血手段。
+
 ---
 
 ## 三、高频追问
