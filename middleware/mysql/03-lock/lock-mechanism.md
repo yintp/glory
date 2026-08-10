@@ -404,6 +404,8 @@ SELECT * FROM task WHERE status='PENDING' FOR UPDATE SKIP LOCKED LIMIT 10;
 -- 并发消费者各取各的任务，互不阻塞
 ```
 
+**`SKIP LOCKED` 的应用场景**：并发消费者从任务表拉取待处理任务，传统方式（`FOR UPDATE`）会让消费者排队等待锁；`SKIP LOCKED` 让每个消费者跳过被其他消费者锁定的行，直接取未锁的行——并发度大幅提升。这是 8.0 之前需用复杂应用层逻辑实现的场景，现成 SQL 一行解决。
+
 ### 4.2 死锁案例：不同顺序更新
 
 ```java
