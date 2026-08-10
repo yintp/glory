@@ -103,6 +103,8 @@ flowchart LR
 | `min_trx_id` | `m_ids` 中的最小值 |
 | `max_trx_id` | 下一个将分配的事务 ID（即当前最大事务 ID + 1） |
 
+**ReadView 的存储**：InnoDB 把 ReadView 存在事务对象的 `read_view` 结构中（`trx0trx.h` 的 `trx_t::read_view`），全局活跃事务列表通过 `trx_sys->rw_trx_list` 维护。生成 ReadView 时加 trx_sys mutex 遍历活跃事务列表，拷贝到 `m_ids` 数组并排序，所以 `min_trx_id` 取最小值是 O(1) 操作。
+
 **可见性判断算法**：访问某行时，沿 undo 链逐版本判断该版本的 `trx_id` 与 ReadView 的关系：
 
 ```mermaid
@@ -141,6 +143,17 @@ flowchart TD
 
 不可见时，沿 `DB_ROLL_PTR` 取 undo log 上一版本，重新走判断，直到找到可见版本或链尾（NULL）。
 
+**可见性判断实例**：假设 ReadView 的 `m_ids=[100, 200]`，`min_trx_id=100`，`max_trx_id=300`，`creator_trx_id=150`。访问某行的 undo 链：
+
+| 版本 | trx_id | 判断 | 结果 |
+|------|--------|------|------|
+| V4（当前） | 250 | `100 <= 250 < 300` 且 `250 not in [100,200]` | 可见（已提交） |
+| V3 | 200 | `100 <= 200 < 300` 且 `200 in [100,200]` | 不可见（活跃未提交） |
+| V2 | 150 | `150 == creator_trx_id` | 可见（自己改的） |
+| V1 | 50 | `50 < 100` | 可见（ReadView 前已提交） |
+
+本例 V4 已提交可见，直接返回 V4；若 V4 的 trx_id=100（在 m_ids 中），则不可见，回溯到 V3 再判断。
+
 ### 2.2 RC vs RR 的 ReadView 生成时机差异
 
 MVCC 的核心差异在于 ReadView 的生成时机：
@@ -170,13 +183,13 @@ sequenceDiagram
     
     Note over A,B: RR 模式（A 复用第一次的 ReadView）
     A->>DB: BEGIN
-    A->>DB: SELECT balance（ReadView 1，m_ids=[A]）
+    A->>DB: SELECT balance（ReadView 1，m_ids=[A]，max_trx_id=200）
     DB-->>A: balance=100
-    B->>DB: BEGIN
+    B->>DB: BEGIN（trx_id=200）
     B->>DB: UPDATE balance=200
     B->>DB: COMMIT
-    A->>DB: SELECT balance（复用 ReadView 1，200 在 m_ids... 不，200 已提交但 max_trx_id 已超）
-    DB-->>A: balance=100（可重复读！沿 undo 链找到 trx_id<min 的版本）
+    A->>DB: SELECT balance（复用 ReadView 1，B 的 trx_id=200 >= max_trx_id，不可见）
+    DB-->>A: balance=100（沿 undo 链找到 trx_id<min_trx_id 的旧版本）
 ```
 
 **为什么 RC 叫"不可重复读"**：RC 下事务 A 两次 SELECT 之间，事务 B 提交了修改，A 的第二次 SELECT 生成新 ReadView 看到了 B 的修改——同一事务内同一行读出不同值，即"不可重复读"。RR 复用 ReadView，B 的修改对 A 不可见，所以可重复读。
@@ -241,6 +254,89 @@ SELECT * FROM t WHERE id > 10;        -- 快照读，现在返回 1 行（id=11�
 | 行记录 | `storage/innobase/include/data0type.h` | 隐藏列 `DB_TRX_ID`/`DB_ROLL_PTR`/`DB_ROW_ID` 定义 |
 
 **可见性判断入口**：`read0read.cc` 的 `ReadView::changes_visible(trx_id)` 方法，即上述四种情况的判定逻辑。Undo 链遍历在 `row0sel.cc` 的 `row_search_for_mysql` 中，沿 `DB_ROLL_PTR` 调用 `trx_undo_prev_version_build` 逐版本回溯。
+
+### 2.6 Undo Log 物理结构
+
+Undo Log 不是单一文件，而是存放在 **Undo Tablespace**（独立表空间，8.0 默认 `innodb_undo_directory=./`）中的回滚段（Rollback Segment）结构：
+
+| 层级 | 结构 | 说明 |
+|------|------|------|
+| Undo Tablespace | 独立表空间文件 | 8.0 动态创建，`innodb_undo_tablespaces`（已废弃，8.0 自动管理） |
+| Rollback Segment | 回滚段，每表空间 128 个 | `innodb_rollback_segments` 控制数量 |
+| Undo Segment | 撤销段，每回滚段 1024 个 | 分配给事务 |
+| Undo Log | 单个事务的 undo 记录链 | insert undo / update undo 两类 |
+
+**两类 Undo Log**：
+
+| 类型 | 何时生成 | 何时清理 | 用途 |
+|------|---------|---------|------|
+| insert undo | INSERT 操作 | 事务提交后立即可清理（无其他事务需读插入的行） | 仅用于事务回滚 |
+| update undo | UPDATE/DELETE 操作 | 事务提交后由 Purge 线程清理（MVCC 可能需读旧版本） | 回滚 + MVCC 版本链 |
+
+**关键**：insert undo 提交后可立即清理（插入的行对其他事务不可见，无需保留旧版本）；update undo 必须等"没有任何活跃事务的 ReadView 需要它"才能被 Purge 清理——这是长事务导致 undo 膨胀的根因。
+
+### 2.7 Purge 线程
+
+Purge 线程负责清理不再被任何活跃事务需要的 undo log 与已标记删除的行记录。
+
+**清理条件**：某 undo log 版本对应的事务 ID < 当前所有活跃事务 ReadView 的 `min_trx_id`——即没有任何活跃事务需要看到这个旧版本。
+
+**Purge 流程**：
+
+```mermaid
+flowchart TD
+    A["Purge 线程周期性唤醒"] --> B["扫描 history list<br/>（已提交事务的 undo log）"]
+    B --> C{"undo log 的 trx_id<br/>< 当前 min_trx_id?"}
+    C -->|是| D["清理该 undo log<br/>+ 删除已标记删除的行"]
+    C -->|否| E["跳过（仍有事务需读）"]
+    D --> F["推进 history list"]
+    E --> G["等待下一轮"]
+    F --> G
+```
+
+**关键参数**：
+- `innodb_purge_batch_size`：每轮 Purge 清理的 undo log 页数（默认 300）
+- `innodb_max_purge_lag`：history list 长度超过此值时延迟 DML 操作（默认 0 不延迟）
+- `innodb_max_purge_lag_delay`：延迟上限（毫秒）
+
+**长事务的危害（从 Purge 视角）**：长事务的 ReadView 让 `min_trx_id` 停留在旧值，Purge 线程无法推进——所有在该 ReadView 之后产生的 undo log 都不能清理，history list 持续增长，undo 表空间膨胀，查询需遍历更长的版本链变慢。这就是为什么监控 `information_schema.innodb_trx` 的 `trx_started` 时间至关重要。
+
+### 2.8 SAVEPOINT 与嵌套事务
+
+MySQL 原生支持 SAVEPOINT（保存点），允许在事务内部设置部分回滚点：
+
+```sql
+BEGIN;
+INSERT INTO t VALUES (1);          -- 操作 1
+SAVEPOINT sp1;                      -- 设置保存点
+INSERT INTO t VALUES (2);          -- 操作 2
+ROLLBACK TO SAVEPOINT sp1;          -- 回滚到保存点，操作 2 撤销，操作 1 保留
+INSERT INTO t VALUES (3);          -- 操作 3
+COMMIT;                             -- 提交操作 1 + 操作 3
+```
+
+**SAVEPOINT 与 Spring NESTED 传播行为的对应**：Spring 的 `@Transactional(propagation = Propagation.NESTED)` 底层即用 SAVEPOINT 实现——内层方法失败 `ROLLBACK TO SAVEPOINT`，外层事务可继续；外层回滚则全部回滚（包括内层已"提交"的保存点）。这与 `REQUIRES_NEW`（独立事务）不同：NESTED 的内层仍在外层事务内，只是多了部分回滚能力。
+
+**注意**：SAVEPOINT 不是独立事务，不释放锁、不独立可见——`ROLLBACK TO SAVEPOINT` 只回滚 DML 操作，事务持有的锁不释放。若需独立提交/回滚，必须用 `REQUIRES_NEW`（新连接新事务）。
+
+### 2.9 8.0 隔离级别参数变迁
+
+| 版本 | 参数名 | 说明 |
+|------|--------|------|
+| 5.7 及以前 | `tx_isolation` | 已废弃 |
+| 8.0 | `transaction_isolation` | 新参数名，语义清晰 |
+| 8.0 | `transaction_read_only` | 替代 `tx_read_only` |
+
+```sql
+-- 8.0 查看隔离级别
+SELECT @@transaction_isolation;
+-- 设置隔离级别（会话级）
+SET SESSION transaction_isolation = 'READ-COMMITTED';
+-- 设置隔离级别（全局）
+SET GLOBAL transaction_isolation = 'REPEATABLE-READ';
+```
+
+**与 RC 切换的配合**：8.0 切 RC 需同时确认 `binlog_format=row`（默认），否则 RC + statement 会导致主从不一致。
 
 ---
 
