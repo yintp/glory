@@ -457,6 +457,8 @@ public void query() { ... }
 
 **注意**：Spring 的 `Isolation.SERIALIZABLE` 会让普通 SELECT 也加共享锁（`LOCK IN SHARE MODE`），性能极差，生产几乎不用。
 
+**隔离级别与锁的总结**：RC 锁范围最小（仅 Record Lock，无 Gap Lock），RR 默认（Next-Key Lock 防幻读），SERIALIZABLE 锁最重（所有读加共享锁）。8.0 推荐 RC + `binlog_format=row`——锁范围小、死锁少、主从安全，是互联网公司的主流选择。
+
 ### 4.4 分布式锁：DB 行锁 vs Redis vs ZooKeeper
 
 | 维度 | DB 行锁 | Redis（Redisson） | ZooKeeper |
