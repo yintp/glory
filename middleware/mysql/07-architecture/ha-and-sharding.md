@@ -79,7 +79,7 @@ MySQL 高可用方案演进历经 MHA、Orchestrator、MGR、MySQL InnoDB Cluste
 
 **Orchestrator**：GitHub 工程师 Shlomi Noach 开发，用 Go 写的 MySQL 拓扑管理与自动 failover 工具。支持拓扑发现、自动修复、手动切换。自身用 Raft 实现高可用，支持与 Consul/Etcd 集成。是目前中型互联网团队的主流方案，配合半同步复制可达到"零数据丢失"目标。
 
-**MGR（MySQL Group Replication）**：MySQL 8.0 引入的原生集群方案（5.7 已有 plugin，8.0 GA）。基于 Paxos 变种（Mention-based consensus）实现多数派一致，单主模式下自动选主，多主模式下支持多节点同时写。冲突检测基于 WRITESET（行级冲突检测），比传统的"全序串行化"更高效。是金融场景的首选。
+**MGR（MySQL Group Replication）**：MySQL 8.0 引入的原生集群方案（5.7 已有 plugin，8.0 GA）。基于 XCom（Paxos 变种）实现多数派一致，单主模式下自动选主，多主模式下支持多节点同时写。冲突检测基于 WRITESET（行级冲突检测），比传统的"全序串行化"更高效。是金融场景的首选。
 
 **MySQL InnoDB Cluster**：官方推出的完整高可用方案，由 MGR + MySQL Router + MySQL Shell 三件套组成。MGR 提供数据层高可用，MySQL Router 提供应用层路由（读写分离、故障转移），MySQL Shell 提供运维管理。是 Oracle 官方推荐方案，运维门槛最低。
 
@@ -145,11 +145,11 @@ MySQL 主从复制的核心是三个线程协作：主库的 **Binlog Dump Threa
 sequenceDiagram
     participant Client as 客户端
     participant Master as 主库
-    participant Dump as Binlog Dump Thread
-    participant IO as 从库 IO Thread
-    participant SQL as 从库 SQL Thread
+    participant Dump as "Binlog Dump Thread"
+    participant IO as "从库 IO Thread"
+    participant SQL as "从库 SQL Thread"
     participant Slave as 从库数据
-    Client->>Master: UPDATE order SET status=1
+    Client->>Master: UPDATE t_order SET status=1
     Master->>Master: 写 Undo Log
     Master->>Master: 更新 Buffer Pool + 写 Redo Log
     Master->>Master: 提交事务（两阶段提交：Redo prepare → 写 Binlog → Redo commit）
@@ -210,7 +210,7 @@ sequenceDiagram
 
 MGR 是 MySQL 8.0 引入的原生集群方案，基于 Paxos 变种实现多数派一致，是"全同步复制的工程化妥协"。理解 Paxos 多数派、单主/多主模式、冲突检测是讲清 MGR 的关键。
 
-**Paxos 多数派原理**：MGR 基于 Paxos 变种（具体为 Mention-based consensus，类 Multi-Paxos）。事务在主库发起后，需经多数派节点（`floor(N/2)+1`）确认后才 commit。例如 3 节点集群需 2 节点确认，5 节点需 3 节点。少数派节点宕机不影响集群可用性，多数派节点存活即可继续提供服务。这是 MGR 优于全同步复制的根本——全同步需所有节点 ack，MGR 只需多数派。
+**Paxos 多数派原理**：MGR 基于 XCom（Paxos 变种，类 Multi-Paxos）实现多数派一致。事务在主库发起后，需经多数派节点（`floor(N/2)+1`）确认后才 commit。例如 3 节点集群需 2 节点确认，5 节点需 3 节点。少数派节点宕机不影响集群可用性，多数派节点存活即可继续提供服务。这是 MGR 优于全同步复制的根本——全同步需所有节点 ack，MGR 只需多数派。
 
 **单主模式（single-primary mode）**：集群中只有一个主节点可写，其他节点为只读。主节点宕机时集群自动选新主（基于 Paxos 选举）。单主模式是 MGR 默认模式，也是生产推荐模式——写入串行化简单，无冲突检测开销。
 
@@ -301,7 +301,7 @@ CREATE TABLE leaf_alloc (
 
 **TCC 的本质**：将业务拆为三个阶段——Try（资源预留）、Confirm（确认提交）、Cancel（回滚释放）。无数据库锁，并发度高。但业务侵入大——每个业务操作需写 Try/Confirm/Cancel 三个接口，开发成本高。适合"高并发 + 强业务约束"场景（如库存扣减）。
 
-**本地消息表的本质**：业务表与消息表同库同事务写入，消息表记录"待发送消息"。后台定时扫描消息表发送到 MQ，消费方消费 MQ 后回调确认。通过"业务表 + 消息表同事务"保证业务与消息的原子性，MQ 保证消息投递可靠性。是订单/库存等异步场景的主流方案。详见 [middleware/README.md（kafka 待建）](../../README.md) 交叉引用。
+**本地消息表的本质**：业务表与消息表同库同事务写入，消息表记录"待发送消息"。后台定时扫描消息表发送到 MQ，消费方消费 MQ 后回调确认。通过"业务表 + 消息表同事务"保证业务与消息的原子性，MQ 保证消息投递可靠性。是订单/库存等异步场景的主流方案。详见 `middleware/README.md`（kafka 待建）交叉引用。
 
 **本地消息表 vs 事务消息（RocketMQ）**：RocketMQ 事务消息是"DB 事务 + MQ 投递"的另一种实现——MQ 层面支持"半消息"（对消费方不可见），业务执行本地 DB 事务后提交半消息（投递）或回滚半消息（丢弃）。相比本地消息表，事务消息无需维护消息表与扫描线程，但对 MQ 强依赖（需 RocketMQ）。本地消息表对 MQ 无要求（任何 MQ 都行），但需维护消息表。两者选型看 MQ 基础设施——有 RocketMQ 选事务消息，无则选本地消息表。
 
@@ -309,7 +309,7 @@ CREATE TABLE leaf_alloc (
 
 **分布式事务选型决策树**：①是否强一致？是 → XA（金融场景）；否 → ②。②是否高并发？是 → TCC（互联网核心场景）；否 → ③。③是否长流程？是 → Saga（订单全流程）；否 → 本地消息表（异步最终一致）。决策树按"一致性 → 性能 → 流程长度"三步收敛，覆盖 90% 场景。
 
-**本地消息表的工程实现要点**：①消息表与业务表同库同事务（保证原子性）；②后台扫描线程定时扫描"待发送"消息（频率与延迟权衡）；③MQ 投递成功后更新消息状态为"已发送"；④消费方幂等消费（基于业务唯一键去重）；⑤消费方处理成功后回调确认，消息表标记"已完成"；⑥超时未确认的消息重投（需 MQ 支持幂等或消费方幂等）。详见 [middleware/README.md（kafka 待建）](../../README.md) 交叉引用。
+**本地消息表的工程实现要点**：①消息表与业务表同库同事务（保证原子性）；②后台扫描线程定时扫描"待发送"消息（频率与延迟权衡）；③MQ 投递成功后更新消息状态为"已发送"；④消费方幂等消费（基于业务唯一键去重）；⑤消费方处理成功后回调确认，消息表标记"已完成"；⑥超时未确认的消息重投（需 MQ 支持幂等或消费方幂等）。详见 `middleware/README.md`（kafka 待建）交叉引用。
 
 ### 2.5 高可用方案选型对比
 
@@ -326,8 +326,8 @@ CREATE TABLE leaf_alloc (
 **选型口诀**：金融强一致选 MGR/InnoDB Cluster，中型互联网选 Orchestrator + 半同步，海量数据选中间件分库分表（ShardingSphere + 半同步）。MHA 已老旧，新项目不推荐。
 
 **交叉引用**：
-- **分布式锁、幂等的 Redis 方案对照**：分布式事务中"本地消息表 + MQ"与 Redis 分布式锁有协同场景（如幂等消费用 Redis 锁）。详见 [middleware/README.md（redis 待建）](../../README.md)。
-- **本地消息表与 Kafka 互补**：本地消息表保证"业务表 + 消息原子性"，Kafka 保证"消息投递可靠性"。两者配合实现最终一致。详见 [middleware/README.md（kafka 待建）](../../README.md)。
+- **分布式锁、幂等的 Redis 方案对照**：分布式事务中"本地消息表 + MQ"与 Redis 分布式锁有协同场景（如幂等消费用 Redis 锁）。详见 `middleware/README.md`（redis 待建）。
+- **本地消息表与 Kafka 互补**：本地消息表保证"业务表 + 消息原子性"，Kafka 保证"消息投递可靠性"。两者配合实现最终一致。详见 `middleware/README.md`（kafka 待建）。
 
 ### 2.6 读写分离与主从延迟对策
 
@@ -410,7 +410,7 @@ GTID（Global Transaction Identifier）是 5.6 引入的复制增强，8.0 默�
 
 ### 3.5 分布式事务怎么选？（强一致 XA vs 最终一致消息表）
 
-选型看一致性要求与性能要求：①金融强一致选 XA（数据库 2PC，资源锁定久，性能差）；②互联网高并发选 TCC（Try-Confirm-Cancel，无锁但业务侵入大）；③订单/库存异步场景选本地消息表（业务表 + 消息表同事务，MQ 投递）；④长流程选 Saga（每段本地事务 + 失败补偿）。**扩展要点**：本地消息表是订单系统主流方案——业务表与消息表同库同事务写，后台扫描消息表发 MQ，消费方幂等消费 + 回调确认。详见 [middleware/README.md（kafka 待建）](../../README.md)。
+选型看一致性要求与性能要求：①金融强一致选 XA（数据库 2PC，资源锁定久，性能差）；②互联网高并发选 TCC（Try-Confirm-Cancel，无锁但业务侵入大）；③订单/库存异步场景选本地消息表（业务表 + 消息表同事务，MQ 投递）；④长流程选 Saga（每段本地事务 + 失败补偿）。**扩展要点**：本地消息表是订单系统主流方案——业务表与消息表同库同事务写，后台扫描消息表发 MQ，消费方幂等消费 + 回调确认。详见 `middleware/README.md`（kafka 待建）。
 
 ### 3.6 MGR 和半同步怎么选？
 
