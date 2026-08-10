@@ -110,7 +110,7 @@ Shell 变量分两类：**局部变量**（只在当前 shell 可见）和**环�
 VAR=hello              # 局部变量，子进程看不到
 export VAR             # 提升为环境变量
 export VAR2=world      # 一步到位
-env | grep VAR         # env 只列环境变量，VAR2 在列，VAR 不在（已 export 故都在）
+env | grep VAR         # env 只列环境变量，VAR 和 VAR2 都在列（均已 export）
 ```
 
 **`export` 的本质**：fork 子进程时，内核把父进程的环境变量复制到子进程的 `environ`（C 库 `environ` 指针，对应 `task_struct` 的 `mm->env_start` 区域）。未 export 的变量不进 `environ`，子进程 `getenv` 拿不到。**`source`/`.` 与 `./script.sh` 的区别**：`source` 在当前 shell 执行（不 fork），脚本里的 `export`/变量改动**对当前 shell 生效**——这就是 `source ~/.bashrc` 能重载配置的根因；`./script.sh` fork 子进程执行，变量改动不回传。
@@ -463,13 +463,17 @@ JAVA_OPTS="$JAVA_OPTS -XX:+ExitOnOutOfMemoryError"
 # 优雅关闭：发 SIGTERM 触发 ShutdownHook
 trap 'kill -TERM $JAVA_PID; wait $JAVA_PID' INT TERM
 
-# 启动
-exec java $JAVA_OPTS -jar "$APP_JAR" &
+# 启动（脚本场景：后台跑 + 转发信号给 java）
+java $JAVA_OPTS -jar "$APP_JAR" &
 JAVA_PID=$!
 wait $JAVA_PID
 ```
 
-关键点：`exec` 让 java 接管当前进程作 PID 1（容器场景）；脚本场景用 `&` + `wait` + `trap` 转发信号。关联 `framework/spring-framework` 的 `ContextClosedEvent` 与 `@PreDestroy`。
+关键点：分两种场景，边界要清晰——
+- **容器场景**（java 作 PID 1）：`exec java $JAVA_OPTS -jar "$APP_JAR"`，无 `&`，`exec` 替换当前进程，java 直接收 SIGTERM 触发 ShutdownHook；
+- **脚本场景**（java 作子进程）：`java ... &` 后台跑，`$!` 取 PID，`trap` 把收到的 INT/TERM 转发给 `$JAVA_PID`，`wait` 阻塞等 java 退出。
+
+注意 `exec cmd &` 是反模式：`&` 先创建子 shell，`exec` 替换的是子 shell 而非父进程，java 仍是子进程，`exec` 既冗余又与容器场景的"PID 1 接管"语义混淆。关联 `framework/spring-framework` 的 `ContextClosedEvent` 与 `@PreDestroy`。
 
 ### 5.4 jps/jstack/jcmd 输出用 awk 解析
 
@@ -495,7 +499,7 @@ jcmd <PID> GC.heap_info | awk '/used/{print}'
 |------|-------------|--------------|
 | 容器优雅停机 | ENTRYPOINT exec 形式 + trap | §5.1，`sh -c` 吞 SIGTERM |
 | K8s 排障 | kubectl + awk 管道 | §5.2，列号依赖输出顺序 |
-| Java 启动脚本 | set -euo + trap 信号转发 | §5.3，`exec java` 作 PID 1 |
+| Java 启动脚本 | set -euo + trap 信号转发 | §5.3，容器 `exec java` 作 PID 1 / 脚本 `&`+wait+trap |
 | 高 CPU 线程定位 | top -H + jstack + awk | §5.4，TID 转十六进制 grep 栈 |
 | cron 跑 Java 任务 | 非 login shell PATH | §四 Q11，脚本内显式 export PATH |
 
