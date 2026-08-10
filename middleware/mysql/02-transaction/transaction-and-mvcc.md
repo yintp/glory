@@ -492,6 +492,46 @@ public void createAndQuery() {
 
 **解法**：①**强制走主库**——事务内的读全部路由到主库（ShardingSphere 的 `@Master` 注解、`@DS("master")`）；②**半同步复制**——主库写 binlog 后等至少一个从库 ack 才返回提交成功，降低延迟窗口（但牺牲性能）；③**业务层重试**——读不到时短延迟重试（不优雅，慎用）；④**读写分离策略**——写后立即读走主库，其他读走从库。
 
+**Spring 多数据源配置示例**：
+
+```java
+@Configuration
+public class DataSourceConfig {
+    @Bean
+    @Primary
+    @ConfigurationProperties(prefix = "spring.datasource.hikari.master")
+    public DataSource masterDataSource() {
+        return DataSourceBuilder.create().type(HikariDataSource.class).build();
+    }
+    
+    @Bean
+    @ConfigurationProperties(prefix = "spring.datasource.hikari.slave")
+    public DataSource slaveDataSource() {
+        return DataSourceBuilder.create().type(HikariDataSource.class).build();
+    }
+    
+    @Bean
+    public AbstractRoutingDataSource routingDataSource() {
+        Map<Object, Object> targetDataSources = new HashMap<>();
+        targetDataSources.put("master", masterDataSource());
+        targetDataSources.put("slave", slaveDataSource());
+        AbstractRoutingDataSource ds = new AbstractRoutingDataSource() {
+            @Override
+            protected Object determineCurrentLookupKey() {
+                return TransactionSynchronizationManager.isActualTransactionActive() 
+                    ? "master"  // 事务内走主库
+                    : "slave";  // 非事务走从库
+            }
+        };
+        ds.setDefaultTargetDataSource(masterDataSource());
+        ds.setTargetDataSources(targetDataSources);
+        return ds;
+    }
+}
+```
+
+**关键点**：`AbstractRoutingDataSource` 在每次获取连接时调用 `determineCurrentLookupKey()` 决定走主还是从。事务激活时（`isActualTransactionActive()`）强制走主库，避免主从延迟导致"读不到刚写的数据"。这是读写分离与事务配合的标准实践。
+
 ---
 
 ## 五、系统设计案例
