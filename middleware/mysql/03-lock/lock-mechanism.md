@@ -112,6 +112,17 @@ WHERE id = 1 AND version = ? AND stock > 0;
 4. **范围查询**：Next-Key Lock，锁住从起点到终点的所有行+间隙，左开右闭 `(a, b]`。
 5. **无索引**：每行都加 Next-Key Lock，效果等同于表锁（全表锁）。
 
+**范围查询加锁案例**：
+
+```sql
+-- 事务 A（c 有值 5, 10, 15, 20）
+SELECT * FROM t WHERE c BETWEEN 10 AND 20 FOR UPDATE;
+-- 加锁：Next-Key Lock (5,10] + (10,15] + (15,20] + (20, +∞]
+-- 即从 10 前一个间隙锁到 20 后的间隙（含 20 后的正无穷间隙）
+```
+
+**关键**：范围查询的锁不仅覆盖范围内的行，还**向后延伸到最后一个命中值之后的间隙**——防止在范围末尾插入新行导致幻读。这是为什么 `WHERE id > 10 FOR UPDATE` 即使只有 id=15/20 两行命中，也会锁住 (10,15] + (15,20] + (20,+∞] 三个区间。
+
 ### 2.2 加锁案例图解
 
 假设表 `t` 有 `id`（主键唯一索引）和 `c`（非唯一索引，有值 5, 10, 15, 20），RR 隔离级别：
@@ -172,6 +183,8 @@ flowchart LR
 ```
 
 事务 B 不能 INSERT c=6/7/8/9/10/11/12/13/14（落在 `(5,15)` 内），因为非唯一索引可能有重复值，需防止插入 c=10 的行导致幻读。**这就是非唯一索引"多锁一个 Gap"的原因**。
+
+**回表时的锁**：上述案例中，事务 A 通过二级索引 `c` 查询并加锁后，还需**回表**在聚簇索引（主键）上对应行也加 Record Lock。即二级索引的 Next-Key Lock + 聚簇索引的 Record Lock，两处都锁。若其他事务通过主键 `UPDATE id=X SET c=...` 修改该行，会被聚簇索引上的 Record Lock 阻塞。
 
 ### 2.3 意向锁的作用
 
@@ -255,6 +268,8 @@ flowchart LR
 - **查看死锁日志**：`SHOW ENGINE INNODB STATUS` 的 `LATEST DETECTED DEADLOCK` 段。
 
 **死锁检测的性能代价**：高并发下死锁检测会消耗 CPU（每个等待的事务都检测循环），极端高并发（数百连接竞争同一行）可关闭检测 + 设短超时，但通常保持开启。
+
+**死锁日志的解读要点**：`SHOW ENGINE INNODB STATUS` 的 `LATEST DETECTED DEADLOCK` 段含四个关键信息：①`*** (1) TRANSACTION` 与 `*** (2) TRANSACTION`：两个事务执行的 SQL；②`*** (1) HOLDS THE LOCK(S)`：事务持有的锁（行/Gap/索引名）；③`*** (1) WAITING FOR THIS LOCK TO BE GRANTED`：事务等待的锁；④`*** WE ROLL BACK TRANSACTION (2)`：victim 是哪个事务。解读时重点看 HOLDS 与 WAITING 的锁，反推加锁顺序。
 
 ### 2.7 RR vs RC 下的锁差异
 
