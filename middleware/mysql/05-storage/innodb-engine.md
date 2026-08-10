@@ -45,8 +45,6 @@ MySQL 5.5 起 InnoDB 成为默认存储引擎，8.0 中 MyISAM 已不再推荐�
 
 ### 1.2 InnoDB 内存架构
 
-### 1.2 InnoDB 内存架构
-
 InnoDB 在内存中维护多个缓冲区，分别缓存数据页、变更、哈希索引与日志：
 
 | 组件 | 作用 | 关键参数 |
@@ -149,21 +147,21 @@ InnoDB 改进方案：
 
 ```mermaid
 flowchart LR
-    subgraph LRU["Buffer Pool LRU 链表（young 5/12 + old 7/12）"]
+    subgraph LRU["Buffer Pool LRU 链表（young 63% + old 37%）"]
         direction LR
-        Y["young 区（热点）<br/>前 5/12"] --- O["old 区（冷）<br/>后 7/12<br/>midpoint"]
+        Y["young 区（热点）<br/>前 63%（约 5/8）"] --- O["old 区（冷）<br/>后 37%（约 3/8）<br/>midpoint"]
     end
     N["新读入的页"] -->|插入 old 头部<br/>midpoint 位置| O
     O -->|再次访问且<br/>存活超过 old_blocks_time| Y
     O -.->|全表扫描的页<br/>很快被淘汰| EV["淘汰"]
 ```
 
-- **midpoint**：young 与 old 的分界点，位于 LRU 链表的 5/12 处（`innodb_old_blocks_pct` 默认 37，即 old 占 37%）
+- **midpoint**：young 与 old 的分界点，位于 LRU 链表的 5/8 处（`innodb_old_blocks_pct` 默认 37，即 old 占 37%，young 占 63%）
 - **新页插入**：新读入的页插到 old 头部（midpoint 位置），而不是链表头部
 - **晋升 young**：页在 old 区存活超过 `innodb_old_blocks_time`（默认 1000ms）后再次被访问，才晋升到 young 头部
 - **全表扫描防护**：全表扫描的页插到 old 头部，但同一次查询内多次访问间隔 < 1s（顺序扫描），不满足 `old_blocks_time`，不会晋升 young，最终从 old 尾部淘汰，保护了 young 区热点
 
-**为什么是 5/12 与 7/12**：经验值。old 区占 37%（7/12）既留够缓冲空间让全表扫描的页有地方放，又不会让 old 区过大挤占 young 区热点。可根据业务调整：读多写少调大 young（`innodb_old_blocks_pct=25`），全表扫描多调大 old（`=50`）。
+**为什么是 young 63% + old 37%**：经验值。old 区占 37%（约 3/8）既留够缓冲空间让全表扫描的页有地方放，又不会让 old 区过大挤占 young 区热点。可根据业务调整：读多写少调大 young（`innodb_old_blocks_pct=25`），全表扫描多调大 old（`=50`）。
 
 **`innodb_old_blocks_time` 的调优**：默认 1000ms（1 秒）。全表扫描场景调大（如 3000ms）能更严格阻止扫描页晋升 young；但若业务确有"刚写入立刻查询"的模式，调大会导致这些页长期停留在 old 区被频繁淘汰。监控 `young-making rate`（`SHOW ENGINE INNODB STATUS`），若过低说明晋升困难，可适当调小。
 
@@ -313,7 +311,7 @@ flowchart TD
 3. **Master Thread 空闲**：定期刷少量脏页（每秒/每 10 秒），保持平稳刷盘节奏
 4. **正常关闭**：Sharp Checkpoint 刷全部脏页，确保关闭后无脏页
 
-**Fuzzy Checkpoint 的子类型**：①Async/Sync Flush（Redo Log 驱动，紧急程度不同）；②Active Flush（脏页比例驱动）；②Idle Flush（空闲时主动刷）。Async Flush 不阻塞用户线程，Sync Flush 在 Redo 极度紧张时阻塞用户线程（性能急剧下降，需避免）。
+**Fuzzy Checkpoint 的子类型**：①Async/Sync Flush（Redo Log 驱动，紧急程度不同）；②Active Flush（脏页比例驱动）；③Idle Flush（空闲时主动刷）。Async Flush 不阻塞用户线程，Sync Flush 在 Redo 极度紧张时阻塞用户线程（性能急剧下降，需避免）。
 
 **Redo Log 循环写**：Redo Log 文件是环形结构，`checkpoint_lsn` 之前的区域可被覆盖。若写入速度持续快于刷盘，Redo 写满会触发强制 Checkpoint，此时所有写操作阻塞（用户线程等待 Redo 空间），这是 Buffer Pool 与 Redo Log 容量规划不足的典型表现。表现：QPS 突然掉底，`Threads_running` 飙升，`SHOW ENGINE INNODB STATUS` 显示 "Log sequence number" 接近 "Log flushed up to"。
 
@@ -434,21 +432,20 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["MySQL 启动"] --> B["扫描 Redo Log<br/>从 last checkpoint 开始"]
-    B --> C["重放所有 Redo<br/>（物理重放，页 LSN 判断是否需应用）"]
+    B --> C["重放所有 Redo<br/>（物理重放，页 LSN 判断是否需应用）<br/>注：重放前先检查页 checksum，撕裂则从 Doublewrite 恢复"]
     C --> D["扫描 Undo Log<br/>找未提交事务"]
     D --> E["回滚未提交事务<br/>（Redo 中无 COMMIT 且 binlog 不完整）"]
     E --> F["提交 PREPARE 且 binlog 完整的事务<br/>（保证主从一致）"]
-    F --> G["检查页撕裂<br/>从 Doublewrite 恢复损坏页"]
-    G --> H["恢复完成，对外服务"]
+    F --> G["恢复完成，对外服务"]
 ```
 
 **崩溃恢复的详细步骤**：
 
-1. **扫描 Redo Log**：从 `checkpoint_lsn` 开始扫描，构建哈希表（`page_no → redo_list`），即每个页有哪些 Redo 需重放
-2. **重放 Redo**：对每个页，若页 LSN < Redo LSN，则应用 Redo（物理覆盖页偏移内容）。批量重放，按页聚合减少 IO
-3. **扫描 Undo Log**：找所有未提交（无 COMMIT）的事务，构建待回滚列表
-4. **回滚未提交事务**：用 Undo Log 反向操作，回滚事务。若 PREPARE 状态且 binlog 完整则提交（不回滚）
-5. **页撕裂恢复**：检查 `.ibd` 中页的 checksum，若损坏从 Doublewrite Buffer 恢复完整副本
+1. **页撕裂检查与恢复**：扫描 `.ibd` 中页的 checksum，若损坏（partial page write）从 Doublewrite Buffer 恢复完整副本——必须在 Redo 重放前完成，因为 Redo 重放要求页本身完整
+2. **扫描 Redo Log**：从 `checkpoint_lsn` 开始扫描，构建哈希表（`page_no → redo_list`），即每个页有哪些 Redo 需重放
+3. **重放 Redo**：对每个页，若页 LSN < Redo LSN，则应用 Redo（物理覆盖页偏移内容）。批量重放，按页聚合减少 IO
+4. **扫描 Undo Log**：找所有未提交（无 COMMIT）的事务，构建待回滚列表
+5. **回滚未提交事务**：用 Undo Log 反向操作，回滚事务。若 PREPARE 状态且 binlog 完整则提交（不回滚）
 6. **完成**：Buffer Pool 预热，对外提供服务
 
 **恢复时间估算**：主要取决于 Redo Log 重放量（`flush_lsn - checkpoint_lsn`）。若配置合理（Checkpoint 及时推进），恢复时间通常 <30 秒。长恢复时间说明 Checkpoint 推进慢或 Redo Log 容量过大，需调优。
@@ -465,7 +462,7 @@ flowchart TD
 
 **为什么**：传统 LRU 在全表扫描时会把整个表的数据页都加载到 LRU 头部，冲刷掉真正的热点页，导致缓存命中率暴跌。一次全表扫描（如 `SELECT * FROM big_table WHERE create_time > '2024-01-01'`）可能让 Buffer Pool 的热点全部失效，后续正常查询全部走磁盘，性能断崖式下降。典型场景：①业务误操作 `SELECT *`；②运维脚本全表统计；③数据迁移/导出工具。
 
-**怎么改进**：①分 young（前 5/12）+ old（后 7/12）两段，新页插到 old 头部（midpoint）；②页在 old 区存活超过 `innodb_old_blocks_time`（默认 1s）后再次访问才晋升 young；③全表扫描的页虽进 old 头，但同次查询内多次访问间隔 <1s（顺序扫描，页 A 读完后立刻读页 B，不会再回来访问页 A），不满足 `old_blocks_time`，不会晋升 young，最终从 old 尾部淘汰。这样真正被反复访问的热点页在 young 区得到保护。调优：`innodb_old_blocks_pct`（old 占比，默认 37）、`innodb_old_blocks_time`（晋升阈值，默认 1000ms）。
+**怎么改进**：①分 young（前 63%，约 5/8）+ old（后 37%，约 3/8）两段，新页插到 old 头部（midpoint）；②页在 old 区存活超过 `innodb_old_blocks_time`（默认 1s）后再次访问才晋升 young；③全表扫描的页虽进 old 头，但同次查询内多次访问间隔 <1s（顺序扫描，页 A 读完后立刻读页 B，不会再回来访问页 A），不满足 `old_blocks_time`，不会晋升 young，最终从 old 尾部淘汰。这样真正被反复访问的热点页在 young 区得到保护。调优：`innodb_old_blocks_pct`（old 占比，默认 37）、`innodb_old_blocks_time`（晋升阈值，默认 1000ms）。
 
 **验证改进效果**：`SHOW ENGINE INNODB STATUS` 看 `Buffer pool hit rate`（应 >99%）与 `young-making rate`（晋升率）。若全表扫描后 hit rate 仍 >95%，说明改进 LRU 生效；若暴跌，检查 `innodb_old_blocks_time` 是否设为 0（禁用改进）。
 
