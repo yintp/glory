@@ -14,6 +14,19 @@
 - 版本基线 MySQL 8.0，5.7 仅作差异对比；涉及 InnoDB 特性时默认引擎为 InnoDB。
 - 答案只给「要点 + 关键数字 + 为什么」，不展开推导——推导在关联文档里。
 
+**各篇题目数与关联文档**：
+
+| 篇章 | 题目数 | 关联文档 |
+|------|--------|---------|
+| 一、索引篇 | 8 题（Q1-Q8） | [索引原理与优化](./01-index/index-and-optimization.md) |
+| 二、事务与 MVCC 篇 | 6 题（Q9-Q14） | [事务与 MVCC](./02-transaction/transaction-and-mvcc.md) |
+| 三、锁机制篇 | 6 题（Q15-Q20） | [锁机制](./03-lock/lock-mechanism.md) |
+| 四、查询优化篇 | 6 题（Q21-Q26） | [查询优化与执行计划](./04-query/query-optimization.md) |
+| 五、存储引擎篇 | 5 题（Q27-Q31） | [存储引擎底层](./05-storage/innodb-engine.md) |
+| 六、日志体系篇 | 5 题（Q32-Q36） | [日志体系](./06-log/log-system.md) |
+| 七、架构与高可用篇 | 5 题（Q37-Q41） | [架构与高可用](./07-architecture/ha-and-sharding.md) |
+| 合计 | **41 题** | 7 份主题文档 |
+
 ---
 
 ## 一、索引篇（8 题）
@@ -293,6 +306,20 @@
 ## 连环套问思维导图
 
 面试官常沿一条链追问到底，下图梳理 6 条高频追问链，把握「上一题答完下一题会被怎么问」的路径：
+
+每条链都是"入口题 → 原理 → 陷阱 → 实战"的递进，面试官常沿一条链追问到底。
+
+**索引链详解**：从"索引底层是什么"入口，追问 B+树为什么矮（页 16KB + 非叶子只存键值），到聚簇 vs 二级的回表代价，再到覆盖索引如何避免回表，接着最左前缀匹配的范围终止陷阱，ICP 如何减少回表，最后落到索引失效场景（函数/隐式转换/左模糊）。一条链覆盖索引篇 8 题的核心逻辑。
+
+**事务链详解**：从 ACID 入口（A=Undo, D=Redo），追问四种隔离级别分别解决什么并发问题，到 MVCC 的 ReadView 可见性算法（四种判断），RR vs RC 的 ReadView 生成时机差异，RR 下幻读是否完全解决（先快照读后当前读的特例），最后落到为什么 MySQL 默认 RR（binlog statement 历史原因）与 8.0 切 RC 趋势。
+
+**锁链详解**：从表锁 vs 行锁入口，追问 Record/Gap/Next-Key Lock 的加锁规则（唯一索引等值命中退化 Record、未命中退化 Gap、非唯一索引 Next-Key + 下一 Gap），到死锁排查（SHOW ENGINE INNODB STATUS + 统一加锁顺序），最后落到乐观锁 vs 悲观锁选型（冲突率 <10% 乐观、>20% 悲观）。
+
+**日志链详解**：从四大日志总览入口，追问 Undo vs Redo（回滚 vs 重放、逻辑 vs 物理），Binlog vs Redo（Server 层 vs 引擎层、逻辑 vs 物理、为什么需要两个），到两阶段提交（Redo prepare → Binlog → Redo commit，保证主从一致），crash recovery（prepare 查 Binlog 决定提交/回滚），最后落到主从复制（三线程 + 并行复制）。
+
+**优化链详解**：从慢查询排查入口（pt-query-digest + Explain），追问 type/key_len/Extra 三字段含义，到 JOIN 驱动表选择（小表驱动大表 + 被驱动表加索引），深分页优化（延迟关联/游标分页），最后落到大表 DDL（instant/inplace/gh-ost）。
+
+**架构链详解**：从主从复制入口（三线程 + 异步延迟），追问半同步复制（AFTER_SYNC + 超时降级），到 MGR（XCom Paxos + WRITESET 冲突检测），读写分离的主从延迟对策（强制走主/缓存/半同步），分库分表分片键选择，分布式 ID（Snowflake 时钟回拨），最后落到分布式事务选型（XA/TCC/本地消息表/Saga）。
 
 ```mermaid
 mindmap
