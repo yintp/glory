@@ -39,7 +39,7 @@ Linux 内存的本质是一条**虚拟地址 → 物理页帧**的翻译链，�
 | swappiness | 内核回收匿名页 vs 文件页的倾向度（0-200，默认 60） | 回收 |
 | OOM killer | 物理内存耗尽时内核选一个进程 SIGKILL 的兜底机制 | OOM |
 | 伙伴系统 | 物理页帧分配器，按 2 的幂次方阶数管理空闲块 | 分配器 |
-| slub | slub 分配器，在伙伴系统之上分配小对象（task_struct/skmuff 等） | 分配器 |
+| slub | slub 分配器，在伙伴系统之上分配小对象（task_struct/sk_buff 等） | 分配器 |
 | RSS | 常驻物理内存，含共享库等共享页 | 指标 |
 | PSS | 按比例分摊共享页后的实际占用（RSS - 共享 + 共享/n） | 指标 |
 | USS | 独占物理内存，进程独有不被共享的部分 | 指标 |
@@ -201,7 +201,7 @@ flowchart TD
 
 | 指标 | 定义 | 查看方式 |
 |------|------|---------|
-| RSS | 婴进程常驻物理内存，含共享库等共享页（会被多进程重复计入） | `ps -o rss`、`top` 的 RES 列、`/proc/<pid>/status` 的 VmRSS |
+| RSS | 进程常驻物理内存，含共享库等共享页（会被多进程重复计入） | `ps -o rss`、`top` 的 RES 列、`/proc/<pid>/status` 的 VmRSS |
 | PSS | 按比例分摊共享页后的实际占用（共享页 ÷ 共享进程数 + 独占页） | `/proc/<pid>/smaps` 的 Pss 汇总、`smem -r` |
 | USS | 独占物理内存（进程私有页，进程退出可释放） | `/proc/<pid>/smaps` 的 Private_Clean + Private_Dirty |
 | VmSize | 虚拟内存大小（含已映射但未分配物理页的部分） | `/proc/<pid>/status` 的 VmSize、`top` 的 VIRT 列 |
@@ -318,7 +318,7 @@ sysctl -w vm.swappiness=10   # 持久写 /etc/sysctl.d/
 **`/proc/meminfo` 关键字段**：
 
 ```bash
-$ grep -E '^(Mem|Swap|Cached|Slab|SReclaim|Sunreclaim|Anon|Shmem|Mapped)' /proc/meminfo
+$ grep -E '^(Mem|Swap|Cached|Slab|SReclaim|SUnreclaim|Anon|Shmem|Mapped)' /proc/meminfo
 MemTotal:       16328804 kB    # 物理内存总量
 MemFree:         7999820 kB    # 完全空闲
 MemAvailable:   11632136 kB    # 估算可用（看这列）
