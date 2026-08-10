@@ -219,6 +219,8 @@ sequenceDiagram
 
 **为什么用 BNL**：被驱动表无索引时，NLJ 需对 t1 每行全表扫描 t2——t1 有 N 行则 t2 扫 N 次。BNL 把 t1 放内存后只需扫 t2 一次，大幅减少扫描次数。但仍是全表扫描，**应给被驱动表 JOIN 列加索引**。
 
+**join_buffer 的大小**：`join_buffer_size`（默认 256KB）控制 BNL 的缓冲区大小。若驱动表数据超过 join_buffer，BNL 会分批处理——先放 t1 的前 N 行进 buffer，扫 t2 一次匹配；再放下 N 行，再扫 t2——扫描 t2 次数 = `ceil(t1.rows / buffer容量的行数)`。调大 `join_buffer_size` 可减少 t2 扫描次数，但每个连接一个 buffer，过大导致内存浪费。
+
 **3. Batched Key Access（BKA, 5.6+）**——NLJ 的批量优化：
 
 | 步骤 | 操作 |
