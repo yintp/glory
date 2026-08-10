@@ -213,6 +213,8 @@
 
 **答**：驱动表是嵌套循环的外层表，被驱动表是内层。**小表驱动大表**——驱动表全量扫，被驱动表走索引多次 probe，所以驱动表小则 probe 次数少。优化器一般自动选小表为驱动表（基于统计信息），可用 `STRAIGHT_JOIN` 强制顺序。关键：被驱动表的 JOIN 列必须有索引，否则每次 probe 都全表扫。Nested Loop Join 适合等值小表 JOIN；BNL（Block Nested Loop）用于被驱动表无索引，把驱动表分块入 join_buffer 减少被驱动表扫表次数；BKA（Batched Key Access）结合 MRR 批量查被驱动表。
 
+**追问：JOIN 的 ON 和 WHERE 有什么区别？** INNER JOIN 时 ON 和 WHERE 等效（都过滤）。LEFT JOIN 时 ON 是连接条件（不过滤左表行），WHERE 是过滤条件（过滤左表行）。如 `LEFT JOIN t2 ON t1.id=t2.id AND t2.status=1`——status=1 只影响 t2 的匹配不影响 t1 的行数；`LEFT JOIN t2 ON t1.id=t2.id WHERE t2.status=1`——status=1 过滤掉 t2.status!=1 的行（含 t2 为 NULL 的行），等价 INNER JOIN。
+
 **关联**：→ [查询优化与执行计划](./04-query/query-optimization.md)
 
 ### Q25: LIMIT 1000000, 10 怎么优化？🔗
