@@ -462,6 +462,23 @@ pt-query-digest /var/log/mysql/slow.log > slow_report.txt
 
 **排查链路**：①`pt-query-digest` 按总耗时排序找 TOP N 慢查询；②逐条 `EXPLAIN` 分析 type/key/rows/Extra；③针对性加索引/改写 SQL/改架构。
 
+**performance_schema 替代方案（8.0）**：8.0 可用 `performance_schema.events_statements_summary_by_digest` 实时查看慢查询，无需解析日志文件：
+
+```sql
+-- 查 TOP 10 慢查询（按平均耗时）
+SELECT 
+    DIGEST_TEXT,
+    COUNT_STAR AS exec_count,
+    ROUND(AVG_TIMER_WAIT/1000000000, 2) AS avg_ms,
+    ROUND(SUM_TIMER_WAIT/1000000000, 2) AS total_ms
+FROM performance_schema.events_statements_summary_by_digest
+WHERE DIGEST_TEXT IS NOT NULL
+ORDER BY AVG_TIMER_WAIT DESC
+LIMIT 10;
+```
+
+**优势**：实时采集、无需文件解析、可按平均/总耗时/执行次数多维度排序。配合 Prometheus + Grafana 可做慢查询实时监控大盘。
+
 ### 4.3 SELECT * 的危害
 
 | 危害 | 说明 |
@@ -472,6 +489,8 @@ pt-query-digest /var/log/mysql/slow.log > slow_report.txt
 | 列变更耦合 | 表加列后 `SELECT *` 多返回不需要的列，破坏 JSON 契约 |
 
 **规范**：永远 `SELECT` 具体列名，禁止 `SELECT *`。MyBatis 用 `<resultMap>` 映射具体列。
+
+**MyBatis 的 SQL 注入防护**：永远用 `#{param}` 而非 `${param}`——前者预编译参数化（防注入），后者字符串拼接（有注入风险）。唯一用 `${}` 的场景是动态表名/列名（如分表路由 `SELECT * FROM orders_${shard}`），此时需在应用层校验白名单。
 
 ### 4.4 @Transactional(readOnly=true) 对查询优化的意义
 
@@ -490,6 +509,25 @@ public List<Order> queryOrders(Long userId) {
 | 连接池路由 | HikariCP 等可路由到只读从库 |
 
 **注意**：`readOnly=true` 不强制加锁行为——仍受隔离级别约束。RR 下 `readOnly=true` 的普通 SELECT 仍走 MVCC 快照读。
+
+**JDBC 批量写入优化**：`rewriteBatchedStatements=true` 是 JDBC 连接参数，让 `PreparedStatement.executeBatch()` 把多条 INSERT 合并为一条（`INSERT INTO t VALUES (...),(...),(...)`），大幅提升批量写入性能：
+
+```java
+// JDBC URL 加 rewriteBatchedStatements=true
+// jdbc:mysql://host:3306/db?rewriteBatchedStatements=true
+
+// 批量插入
+try (PreparedStatement ps = conn.prepareStatement("INSERT INTO orders(id,amount) VALUES(?,?)")) {
+    for (Order o : orders) {
+        ps.setLong(1, o.getId());
+        ps.setBigDecimal(2, o.getAmount());
+        ps.addBatch();
+    }
+    ps.executeBatch();  // rewriteBatchedStatements=true 时合并为一条 INSERT
+}
+```
+
+**性能对比**：不开 `rewriteBatchedStatements` 时 10000 条 INSERT 约 10 秒；开启后约 0.3 秒——30 倍提升。生产批量写入必开。
 
 ---
 
