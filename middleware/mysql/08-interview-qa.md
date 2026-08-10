@@ -489,3 +489,15 @@ mindmap
 ```
 
 > **使用提示**：面试前盖住答案自答 41 题，对照思维导图检查每条追问链是否答得完整；答不上来的题跳转 **关联** 文档补原理推导。
+
+## 附：高频面试场景速查
+
+| 场景 | 核心题 | 关联文档 |
+|------|--------|---------|
+| "讲讲 MySQL 索引" | Q1-Q8 | [索引原理与优化](./01-index/index-and-optimization.md) |
+| "讲讲 MVCC" | Q9-Q14 | [事务与 MVCC](./02-transaction/transaction-and-mvcc.md) |
+| "讲讲 MySQL 锁" | Q15-Q20 | [锁机制](./03-lock/lock-mechanism.md) |
+| "慢查询怎么优化" | Q21-Q26 | [查询优化与执行计划](./04-query/query-optimization.md) |
+| "讲讲 InnoDB 底层" | Q27-Q31 | [存储引擎底层](./05-storage/innodb-engine.md) |
+| "讲讲 MySQL 日志" | Q32-Q36 | [日志体系](./06-log/log-system.md) |
+| "MySQL 高可用怎么设计" | Q37-Q41 | [架构与高可用](./07-architecture/ha-and-sharding.md) |
