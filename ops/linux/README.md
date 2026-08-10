@@ -147,7 +147,7 @@ mindmap
 | 网络 | [网络内核](./06-network/network-kernel.md) | netfilter、iptables、conntrack、TCP 栈队列、NAPI/RPS、策略路由 |
 | 安全 | [安全与权限](./07-security/security-and-permission.md) | DAC/MAC、Capability、SELinux、seccomp、AppArmor、PAM |
 | Shell | [Shell 与脚本](./08-shell/shell-and-scripting.md) | Bash 启动层级、三剑客、进程替换、变量作用域、set -euo pipefail |
-| 性能排障 | [性能与故障排查](./09-ops/performance-and-troubleshooting.md) | USE/RED、top/vmstat/iostat、perf、strace、tcpdump、eBPF、排障四步法 |
+| 性能排障 | [性能与故障排查](./09-ops/performance-and-troubleshooting.md) ✅ | USE/RED、top/vmstat/iostat、perf、strace、tcpdump、eBPF、排障四步法 |
 | 面试冲刺 | [Q&A 速答](./10-interview-qa.md) | 50+ 题速答 + 连环套问思维导图 |
 
 > 共 **11 份**文档：入口 README（本文档）+ 上表 10 份主题/Q&A 文档。
