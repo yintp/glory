@@ -229,6 +229,8 @@
 
 **答**：Change Buffer 缓存对**二级索引**的 INSERT/UPDATE/DELETE 操作，当目标页不在 Buffer Pool 时先记在 Change Buffer，等下次该页被读到内存时再 merge，减少随机 IO。**只对二级索引有效**因为：聚簇索引的修改必须立即定位行（按主键有序），页必然在内存或需读入，无缓存意义；二级索引修改是随机的（如 `UPDATE t SET name=? WHERE id=?` 改 name 列，name 索引页可能不在内存），缓存后批量 merge 能把多次随机 IO 合并为一次顺序 IO。前提：二级索引非唯一（唯一索引需立即读页校验唯一性，无法缓存）。
 
+**追问：Change Buffer 和 Insert Buffer 的关系？** Insert Buffer 是 5.5 之前的名字（只缓存 INSERT）；5.5 后扩展支持 DELETE/UPDATE 改名 Change Buffer。占 Buffer Pool 的 `innodb_change_buffer_max_size`（默认 25%）。写多读少的二级索引场景收益大；若二级索引 immediately 被读（merge 触发频繁），Change Buffer 无收益反而有维护开销。
+
 **关联**：→ [存储引擎底层](./05-storage/innodb-engine.md)
 
 ### Q30: Doublewrite 解决什么问题？🔗
