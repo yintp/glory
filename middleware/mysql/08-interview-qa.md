@@ -109,6 +109,8 @@
 
 **答**：MVCC（多版本并发控制）通过**隐藏列 + Undo 版本链 + ReadView** 实现。每行有 `trx_id`（最近修改事务 ID）和 `roll_pointer`（指向 undo 旧版本），多次修改形成 undo 版本链。ReadView 记录：`m_ids`（生成时活跃事务 ID 列表）、`min_trx_id`（最小活跃）、`max_trx_id`（下一个将分配的事务 ID）、`creator_trx_id`（当前事务）。可见性判断：行 `trx_id == creator_trx_id` 可见（自己改的）；`trx_id < min_trx_id` 可见（在 ReadView 前已提交）；`trx_id >= max_trx_id` 不可见（ReadView 后才开的事务）；在 `m_ids` 中不可见（未提交），否则可见。不可见时顺 `roll_pointer` 找旧版本重判。
 
+**追问：MVCC 的 Undo 版本链什么时候清理？** 由 Purge 线程清理。某 undo log 版本对应的事务 ID < 当前所有活跃事务 ReadView 的 `min_trx_id` 时（即没有任何活跃事务需要看到这个旧版本），Purge 线程可清理。长事务的 ReadView 让 `min_trx_id` 停留旧值，Purge 无法推进——所有后续 undo log 都不能清理，导致 undo 表空间膨胀。这就是长事务危害的根因。
+
 **关联**：→ [事务与 MVCC](./02-transaction/transaction-and-mvcc.md)
 
 ### Q12: RR 下幻读解决了吗？🔗
