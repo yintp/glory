@@ -279,6 +279,8 @@ Undo Log 不是单一文件，而是存放在 **Undo Tablespace**（独立表空
 
 **关键**：insert undo 提交后可立即清理（插入的行对其他事务不可见，无需保留旧版本）；update undo 必须等"没有任何活跃事务的 ReadView 需要它"才能被 Purge 清理——这是长事务导致 undo 膨胀的根因。
 
+**Undo Log 的物理记录格式**：update undo log 记录的是**旧值快照**（行的所有列旧值 + `DB_TRX_ID` + `DB_ROLL_PTR`），不是 SQL 语句。这与 binlog（记 SQL 或行变更）不同——undo 是物理逻辑混合日志（按行记录旧值，但不是页级别物理偏移），主要用于回滚与 MVCC 版本链。insert undo 只记录主键值（回滚时按主键删除即可），体积更小。
+
 ### 2.7 Purge 线程
 
 Purge 线程负责清理不再被任何活跃事务需要的 undo log 与已标记删除的行记录。
