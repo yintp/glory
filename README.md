@@ -108,9 +108,8 @@ Java 全栈技术学习仓库，涵盖算法、Java 核心、设计模式、框�
 
 ## middleware
 
-- MySQL / Redis
-- Kafka / RocketMQ
-- Elasticsearch / MongoDB
+- [MySQL](./middleware/mysql) — 面试知识体系（9 份文档，覆盖索引/事务/锁/查询优化/存储引擎/日志/架构）
+- Redis / Kafka / RocketMQ / Elasticsearch / MongoDB（规划中）
 
 ---
 
