@@ -123,6 +123,8 @@ EXPLAIN ANALYZE SELECT * FROM orders WHERE user_id = 100 AND status = 'PAID';
 
 **`ref` 与 `eq_ref` 的区别**：`eq_ref` 是 JOIN 时被驱动表用**唯一索引/主键**等值匹配（一对一），`ref` 是用**非唯一索引**等值匹配（一对多）。例如 `JOIN t2 ON t1.id=t2.id`（t2.id 是主键）→ t2 是 `eq_ref`；`WHERE name='x'`（name 非唯一索引）→ `ref`。
 
+**`index` 与 `ALL` 的区别**：`index` 扫描整个索引树（叶子节点双向链表遍历），不回表；`ALL` 扫描聚簇索引（数据页），相当于全表扫描。`index` 比 `ALL` 快是因为索引树比数据页小（叶子只存索引列+主键）。典型 `index` 场景：`SELECT COUNT(*) FROM t`（优化器选最小索引扫描）、`SELECT id FROM t`（id 在二级索引叶子有覆盖）。
+
 ### 2.2 key_len 计算规则
 
 `key_len` 表示使用的索引字段总长度，用于**判断联合索引用了几个列**：
