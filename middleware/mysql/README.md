@@ -133,7 +133,7 @@ mindmap
 | 存储引擎 | [存储引擎底层](./05-storage/innodb-engine.md) ✅ | Buffer Pool/Change Buffer/AHI/LSN/Checkpoint/WAL/刷盘 |
 | 日志体系 | [日志体系](./06-log/log-system.md) ✅ | Undo/Redo/Binlog/Relay Log/两阶段提交/Crash Recovery |
 | 架构与高可用 | [架构与高可用](./07-architecture/ha-and-sharding.md) ✅ | 主从复制/读写分离/分库分表/MHA/MGR/半同步/高可用选型 |
-| 面试冲刺 | [Q&A 速答](./08-interview-qa.md) ✅ | 40+ 题速答 + 连环套问思维导图 |
+| 面试冲刺 | [Q&A 速答](./08-interview-qa.md) ✅ | 41 题速答 + 连环套问思维导图 |
 
 > 共 **9 份**文档：入口 README（本文档）+ 上表 8 份主题/Q&A 文档。
 

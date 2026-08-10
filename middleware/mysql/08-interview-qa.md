@@ -59,6 +59,8 @@
 
 **答**：联合索引 `(a, b, c)` 按 a→b→c 顺序在 B+树中排序，查询条件必须从最左列开始连续匹配才能走索引。`WHERE a=? AND b=? AND c=?` 全走，`WHERE a=? AND c=?` 只走 a（c 用不到索引，因 b 缺失后 c 在树中无序），`WHERE b=? AND c=?` 完全不走索引（缺 a 前缀）。范围查询（`>`/`<`/`BETWEEN`/`LIKE 'x%'`）会断开后续列的索引使用——范围列之后的所有列都不能走索引，因为范围后的列在 B+树中不再有序。优化原则：等值列在前、范围列在后。
 
+**追问：`ORDER BY` 能走最左前缀吗？** 能。联合索引 `(a, b, c)` 下 `WHERE a=? ORDER BY b, c` 可走索引排序（`Using index`），因为 a 固定后 b、c 在索引中有序。但 `WHERE a=? ORDER BY c` 不能走索引排序（跳过 b 后 c 无序），产生 `Using filesort`。
+
 **关联**：→ [索引原理与优化](./01-index/index-and-optimization.md)
 
 ### Q6: 索引下推 ICP 是什么？🔗
@@ -78,6 +80,8 @@
 ### Q8: 主键选自增 ID 还是 UUID？为什么？🔗
 
 **答**：推荐自增 ID。InnoDB 聚簇索引按主键有序组织，自增 ID 总是追加到 B+树末尾，页分裂少、写入快；UUID 无序导致新行插到中间，频繁页分裂、写放大、缓冲池命中率下降。UUID 优势是全局唯一、分布式无冲突，适合分库分表或多数据中心。折中方案：用 Snowflake 等有序分布式 ID 兼顾唯一与有序。UUID 占 16 字节（binary(16)）比 bigint 8 字节大一倍，所有二级索引叶子都存主键，主键越大索引越大。
+
+**追问：为什么主键越大二级索引越大？** InnoDB 二级索引叶子节点存"索引列值 + 主键值"（用于回表）。主键 bigint 8 字节、UUID 16 字节，每条二级索引记录多 8 字节。一张 1000 万行的表若有 5 个二级索引，主键从 bigint 改 UUID 每个索引多 80MB，5 个索引多 400MB——这是 UUID 隐性成本。
 
 **关联**：→ [索引原理与优化](./01-index/index-and-optimization.md)
 
@@ -108,6 +112,8 @@
 ### Q12: RR 下幻读解决了吗？🔗
 
 **答**：RR **大部分解决**了幻读，但不是完全解决。快照读（普通 SELECT）走 MVCC，ReadView 在事务首次读时生成并复用，后续读的都是同一快照，看不到别的事务新插入的行——幻读解决。当前读（`SELECT ... FOR UPDATE`/`UPDATE`/`DELETE`）走 Next-Key Lock（Record + Gap），锁住已有行及行间间隙，别的事务无法 INSERT 到间隙——幻读解决。**漏洞**：事务内先快照读再当前读，或先当前读再快照读，可能看到当前读带入的新行，建议事务内查询统一用当前读或统一用快照读。
+
+**追问：怎么避免 RR 的幻读漏洞？** ①事务开头直接用 `SELECT ... FOR UPDATE` 做当前读加锁，后续操作都基于当前读；②避免事务内混合快照读与当前读；③若只需快照读，全程用普通 SELECT，不穿插 `FOR UPDATE`/`UPDATE`。
 
 **关联**：→ [事务与 MVCC](./02-transaction/transaction-and-mvcc.md)
 
@@ -152,6 +158,8 @@
 ### Q18: 唯一索引等值命中加什么锁？未命中呢？🔗
 
 **答**：**唯一索引等值命中**：退化为 Record Lock，只锁命中那一条记录，不加 Gap Lock——因为唯一性保证不会有第二条相同值插入，间隙锁无意义。**唯一索引等值未命中**：退化为 Gap Lock，锁住查询值所在的间隙，防止别的事务 INSERT 这个值破坏唯一性。**非唯一索引等值命中**：Next-Key Lock + 后一个 Gap Lock（锁住命中值到下一值之间的间隙，因为非唯一可能有多个相同值，需防幻读）。**范围查询**：所有隔离级别都加 Next-Key Lock 锁住范围区间。
+
+**追问：非唯一索引为什么多锁一个 Gap？** 非唯一索引可能有重复值（如 c=10 有多行），若只锁命中的行，其他事务可在命中行前后插入新的 c=10 行，导致当前读（`SELECT ... FOR UPDATE`）幻读。Gap Lock 锁住 `(前一行, 命中行] + (命中行, 后一行)` 防止插入，保证 RR 下当前读防幻读。唯一索引无需此 Gap（唯一性保证无重复值）。
 
 **关联**：→ [锁机制](./03-lock/lock-mechanism.md)
 
@@ -211,6 +219,8 @@
 
 **答**：5.6 前 DDL 会锁表；5.6+ 引入 Online DDL，多数加列/加索引支持 `inplace` + `nolock`，执行期间可读写。但大表（千万行+）即使 Online DDL 仍有风险：①建索引需扫全表 + 排序，耗时长，占用 buffer pool 与 IO；②开始与结束阶段短暂 MDL 锁，可能阻塞线上；③ row copy 期间 redo 暴涨。生产做法：①用 **pt-online-schema-change** 或 **gh-ost** 工具，建影子表 + 触发器同步增量，影子表建好后 rename 切换，全程不锁；②业务低峰执行；③分批次（如按分区）；④8.0 的 instant DDL（加列到末尾）秒级完成。
 
+**追问：gh-ost 和 pt-osc 选哪个？** gh-ost 优先——不用触发器（用 binlog 解析同步增量），对主库压力小，可暂停/恢复，有流量控制（`throttle-control-replicas` 监控从库延迟）。pt-osc 成熟但用触发器，高并发下触发器有性能开销。有外键时 pt-osc 有限支持，gh-ost 不支持外键需先处理。
+
 **关联**：→ [查询优化与执行计划](./04-query/query-optimization.md)
 
 ---
@@ -242,6 +252,8 @@
 ### Q30: Doublewrite 解决什么问题？🔗
 
 **答**：Doublewrite Buffer（双写缓冲）解决**页撕裂**问题——InnoDB 页 16KB，操作系统页 4KB，磁盘扇区 512B，宕机时 16KB 可能只写了一部分（如写了 8KB），导致页损坏。Doublewrite 先把页写到共享表空间的连续 2MB 区域（doublewrite buffer），再写到各表独立 `.ibd` 文件。crash recovery 时若发现 `.ibd` 中的页校验和不对，从 doublewrite buffer 恢复完整页再重放 redo。代价是每次写多一次顺序写（doublewrite 区连续，IO 快），但换来页完整性。8.0.20+ 支持独立 doublewrite 文件减少共享表空间依赖。
+
+**追问：Doublewrite 能关掉吗？** 能，`innodb_doublewrite=OFF` 可关闭，但不建议——关掉后页撕裂无法恢复，redo 重放到撕裂页会产生错误数据。仅在极致写入性能场景（如批量导入后重建表）临时关闭。SSD 时代 doublewrite 的顺序写开销已很小（<5%），不值得为省这点性能冒数据损坏风险。
 
 **关联**：→ [存储引擎底层](./05-storage/innodb-engine.md)
 
