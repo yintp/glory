@@ -157,6 +157,8 @@
 
 **答**：悲观锁假设冲突必发生，先加锁再操作（`SELECT ... FOR UPDATE`），强一致但并发低，适合写多读少、冲突频繁。乐观锁假设冲突少，读时不锁、提交时校验版本（`version` 字段或 `CAS`），`UPDATE t SET x=?, version=version+1 WHERE id=? AND version=?`，影响行数 0 即重试，并发高但冲突多时重试开销大。选择：冲突率 <10% 用乐观锁，>30% 用悲观锁，中间看业务容忍度。乐观锁注意 ABA 问题（用版本号而非状态值），悲观锁注意死锁与锁等待超时。
 
+**追问：乐观锁重试次数怎么设？** 通常 3 次指数退避（10ms/50ms/200ms），3 次仍失败说明冲突极严重，应降级为悲观锁或限流。重试需保证业务方法幂等——否则重试导致重复执行（如重复扣款）。8.0+ 可用 `SELECT ... FOR UPDATE NOWAIT`（锁不到立即报错）或 `SKIP LOCKED`（跳过被锁的行）优化悲观锁并发。
+
 **关联**：→ [锁机制](./03-lock/lock-mechanism.md)
 
 ---
@@ -206,6 +208,8 @@
 ### Q27: InnoDB 和 MyISAM 区别？🔗
 
 **答**：①**事务**——InnoDB 支持事务、crash recovery；MyISAM 不支持，宕机易损坏。②**锁粒度**——InnoDB 行锁（基于索引）；MyISAM 表锁，写并发低。③**索引结构**——InnoDB 聚簇索引（索引即数据）；MyISAM 非聚簇（索引与数据分离，数据存 `.MYD`，索引存 `.MYI`）。④**外键**——InnoDB 支持；MyISAM 不支持。⑤**全文索引**——MyISAM 老牌支持；InnoDB 5.6+ 才支持。⑥**崩溃恢复**——InnoDB 有 redo log；MyISAM 靠 `myisamchk` 修复，慢且不可靠。8.0 系统表已全转 InnoDB，MyISAM 仅用于只读历史表。
+
+**追问：为什么 InnoDB 选聚簇索引而 MyISAM 选非聚簇？** InnoDB 面向 OLTP（高并发读写），聚簇索引让主键查找一次 IO 定位行，且行数据与索引同页 IO 局部性好；MyISAM 面向 OLAP/只读，非聚簇让二级索引也直接存行指针（不需回表聚簇索引），多索引场景下扫描更快。设计取舍不同。
 
 **关联**：→ [存储引擎底层](./05-storage/innodb-engine.md)
 
@@ -258,6 +262,8 @@
 ### Q35: crash recovery 怎么保证数据不丢？🔗
 
 **答**：crash recovery 依赖 redo log + binlog 两阶段提交。流程：①启动时扫 redo log，重放所有已 prepare 但页未落盘的变更到 Buffer Pool；②对每个 prepare 状态事务查 binlog 是否有完整 XID——有则提交、无则用 undo 回滚；③重放完成后 Buffer Pool 脏页异步刷盘。保证不丢的前提：`innodb_flush_log_at_trx_commit=1`（每事务 fsync redo）+ `sync_binlog=1`（每事务 fsync binlog）。代价是每事务两次 fsync，性能影响大，可调为 `=2`/`sync_binlog=N` 牺牲少量安全性换性能。redo log 循环写，checkpoint 之前的页已落盘可覆盖，恢复只重放 checkpoint 之后的。
+
+**追问：崩溃恢复时页撕裂怎么处理？** 重放 redo 前先检查每页的 checksum（校验和），若不匹配说明该页在崩溃时只写了部分（partial page write / 页撕裂），从 Doublewrite Buffer 找该页的完整副本恢复，再用 redo 重放。若没有 Doublewrite，redo 重放到撕裂页会产生错误数据——这就是 Doublewrite 的不可替代性。
 
 **关联**：→ [日志体系](./06-log/log-system.md)
 
