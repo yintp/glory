@@ -180,7 +180,7 @@ flowchart LR
 
 **为什么硬链接不能跨文件系统**：inode 号只在**同一文件系统内**唯一。文件系统 A 的 inode #123 与文件系统 B 的 inode #123 是两个完全不同的东西。硬链接靠"dentry 指向 inode"，跨 fs 后 dentry 无法指向另一个 fs 的 inode（`d_inode` 是内存指针，文件系统边界处无对应）。软链接只存"目标路径字符串"，路径解析时由 VFS 重新走路径查找，自然能跨 fs。
 
-**为什么硬链接不能链接目录**：防止目录树出现环（`a/b -> a` 会导致路径解析死循环）。ext4 默认 ` hardened_links` 不允许，但 root 用户可强制（用于 `rename` 的原子操作场景）。软链接链接目录是允许的（但要小心循环）。
+**为什么硬链接不能链接目录**：POSIX 默认禁止硬链接到目录，防止目录树出现环（`a/b -> a` 会导致路径解析死循环）。ext4 通常仍禁（即使 root 也禁，除非用特殊挂载选项如 `wrepl_inodes` 极端场景）。**注意区分**：`fs.protected_hardlinks` sysctl 是另一回事——它是安全限制，禁止非特权用户硬链接到无权访问的文件（防越权提权），与"硬链接不能链接目录"无关。软链接链接目录是允许的（但要小心循环）。
 
 > **记忆口诀**：硬链接 = 同 inode 共享；软链接 = 路径字符串重定向。硬链接跨不了 fs（inode 局限），软链接跨得了（路径解析）。删除原文件，硬链接还在（inode 引用还在），软链接悬空（路径找不到目标）。
 
@@ -199,9 +199,9 @@ flowchart TD
         LOWER2[lowerdir N-1 层<br/>只读]
         WORK[workdir 层<br/>OverlayFS 内部工作目录]
     end
-    MERGED --> UPPER
-    MERGED --> LOWER1
-    MERGED --> LOWER2
+    UPPER --> MERGED
+    LOWER1 --> MERGED
+    LOWER2 --> MERGED
     UPPER -.->|CoW 时用| WORK
 ```
 
@@ -552,7 +552,7 @@ Spring 的 `@Value("${config.key}")` 从 Environment 取值，Environment 的属
 
 **热加载**：`@RefreshScope` + Spring Cloud Config，配置变更后重新读文件。底层仍走 VFS `read`，但要注意**文件被外部进程修改后，Spring 缓存的 PropertySource 不会自动失效**——需显式 refresh。
 
-### 5.3 日志文件 fsync 与磁盘 IO 原力
+### 5.3 日志文件 fsync 与磁盘 IO 压力
 
 Java 日志框架（Logback/Log4j2）写文件默认走 `FileChannel.write`（经 Page Cache，`write` 不阻塞）。若配 `immediateFlush=true`（Logback 默认），每次写后调 `FileChannel.force(false)`（等价 fsync，`false` 表示不刷元数据，类似 fdatasync）——保证日志不丢但 IO 开销大。
 
