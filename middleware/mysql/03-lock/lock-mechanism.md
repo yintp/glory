@@ -304,6 +304,36 @@ flowchart LR
 
 **死锁检测入口**：`lock_deadlock_check_recursive` 沿等待图（wait-for graph）深度遍历，发现环即报死锁。victim 选择策略在 `lock_deadlock_select_victim` 中，优先回滚 undo 量少的事务（回滚代价小）。
 
+**锁队列的管理**：每个行的锁请求按 FIFO 排队在 `lock_rec_queue` 中。S 锁与 S 锁兼容可同时授予，X 锁与任何锁互斥需排队。插入意向锁的排队优先级低于已排队的 Gap Lock——这是为什么 Gap Lock 会阻塞后续插入的底层机制。
+
+### 2.9 锁的监控与排查
+
+生产环境锁问题的排查工具链：
+
+| 工具 | 用途 | 关键输出 |
+|------|------|---------|
+| `SHOW ENGINE INNODB STATUS` | 查看当前锁等待与死锁 | `LATEST DETECTED DEADLOCK`、`TRANSACTIONS` 段 |
+| `information_schema.innodb_trx` | 查活跃事务 | `trx_id`/`trx_state`/`trx_started`/`trx_rows_locked` |
+| `information_schema.innodb_locks`（8.0 改为 `performance_schema.data_locks`） | 查当前锁 | 锁类型、索引、事务 ID |
+| `information_schema.innodb_lock_waits`（8.0 改为 `performance_schema.data_lock_waits`） | 查锁等待关系 | 等待事务、阻塞事务 |
+| `SHOW GLOBAL STATUS LIKE 'Innodb_row_lock%'` | 锁统计 | 等待次数、等待时间 |
+
+**8.0 的改进**：锁信息从 `information_schema` 迁移到 `performance_schema`，实时性更高（不再依赖 `innodb_status_output` 临时变量），且可查到锁的具体类型（RECORD/GAP/NEXT-KEY）与模式（S/X/IS/IX）。
+
+```sql
+-- 8.0 查当前锁等待
+SELECT 
+    r.trx_id AS waiting_trx_id,
+    r.trx_mysql_thread_id AS waiting_thread,
+    r.trx_query AS waiting_query,
+    b.trx_id AS blocking_trx_id,
+    b.trx_mysql_thread_id AS blocking_thread,
+    b.trx_query AS blocking_query
+FROM performance_schema.data_lock_waits w
+JOIN information_schema.innodb_trx b ON b.trx_id = w.blocking_engine_transaction_id
+JOIN information_schema.innodb_trx r ON r.trx_id = w.requesting_engine_transaction_id;
+```
+
 ---
 
 ## 三、高频追问
