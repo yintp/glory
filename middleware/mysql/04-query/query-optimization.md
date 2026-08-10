@@ -420,6 +420,8 @@ SELECT * FROM orders WHERE status='PAID' AND id > #{last_id} ORDER BY id ASC LIM
 
 **答**：InnoDB 的 `COUNT(*)` 需扫描整表或最小索引（不像 MyISAM 有计数器）。优化：①**选最小索引**——优化器自动选最小的二级索引扫描（`COUNT(*)` 比 `COUNT(列)` 快，因为 `COUNT(*)` 不检查 NULL 可选最小索引）；②**近似计数**——`SHOW TABLE STATUS LIKE 't'` 的 `Rows` 字段（估算值，有 10-50% 偏差）；③**汇总表**——触发器/应用层维护计数，查询时直接读汇总表；④**Redis 计数**——写入时 Redis INCR，查询读 Redis（需保证一致性）。生产推荐汇总表 + 定期对账。
 
+**追问：COUNT(*)/COUNT(1)/COUNT(列) 的区别？** `COUNT(*)` 与 `COUNT(1)` 完全等价，都统计所有行（含 NULL），优化器选最小索引；`COUNT(列)` 统计该列非 NULL 的行数，需检查每行该列是否为 NULL，不能选任意索引（需走含该列的索引）。所以 `COUNT(*)` ≥ `COUNT(列)`（行数），且 `COUNT(*)` 通常更快（可选最小索引）。
+
 ---
 
 ## 四、实战关联（Java 后端视角）
