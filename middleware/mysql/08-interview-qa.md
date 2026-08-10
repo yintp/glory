@@ -155,6 +155,8 @@
 
 **答**：**取决于是否有匹配的索引**。`SELECT ... FOR UPDATE` 是当前读，走索引时锁命中的行（及间隙，RR 下）；**未走索引（全表扫）时锁全表**——因为 InnoDB 行锁基于索引，全表扫要对每行加锁，等价于锁表。这是生产事故高发点：以为锁一行实际锁全表，导致全库阻塞。排查：`EXPLAIN` 看 type 是否为 ALL、key 是否为 NULL；`SHOW ENGINE INNODB STATUS` 看锁的具体范围。建议：FOR UPDATE 必带高选择性索引条件，且先 EXPLAIN 确认走索引。
 
+**追问：8.0 的 NOWAIT/SKIP LOCKED 有什么用？** ①`FOR UPDATE NOWAIT`——锁不到立即报错（不等待），适合"抢不到就放弃"的场景；②`FOR UPDATE SKIP LOCKED`——跳过被锁的行返回未锁的行，适合并发消费者从任务表拉取任务（各取各的互不阻塞）。两者配合可大幅提升并发度，替代应用层重试逻辑。
+
 **关联**：→ [锁机制](./03-lock/lock-mechanism.md)
 
 ### Q18: 唯一索引等值命中加什么锁？未命中呢？🔗
@@ -200,6 +202,8 @@
 ### Q23: Extra 里 Using filesort 怎么优化？🔗
 
 **答**：`Using filesort` 表示 ORDER BY 无法走索引排序，需在内存（`sort_buffer`）或磁盘做排序，代价高。优化：①建联合索引把 `WHERE` 列和 `ORDER BY` 列都覆盖，让排序走索引（`ORDER BY` 列顺序与索引一致）；②`WHERE a=? ORDER BY b, c` 建 `(a, b, c)` 索引；③排序方向与索引一致（8.0 支持降序索引 `DESC`）；④只 SELECT 需要的列，减少 sort_buffer 压力；⑤调大 `sort_buffer_size`。`Using temporary`（临时表）更糟，常见于 GROUP BY + ORDER BY 不同列、DISTINCT，需改写 SQL 或加索引。
+
+**追问：Using temporary 什么时候出现？** `GROUP BY`、`DISTINCT`、`UNION` 需要临时表去重时出现。若临时表超过 `tmp_table_size` 落磁盘（`SHOW STATUS LIKE 'Created_tmp_disk_tables'` 查看磁盘临时表数）。优化：给 GROUP BY 列加索引（走 `Using index for group-by`），或拆分 SQL 减少 DISTINCT。
 
 **关联**：→ [查询优化与执行计划](./04-query/query-optimization.md)
 
