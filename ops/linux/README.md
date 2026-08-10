@@ -139,16 +139,16 @@ mindmap
 
 | 分层 | 文档 | 核心考点 |
 |------|------|---------|
-| 系统启动 | [系统启动与运行时](./01-foundation/system-boot-and-runtime.md) | BIOS/UEFI→Bootloader→kernel→init、systemd Unit、cgroup v1/v2 基础 |
-| 进程 | [进程与线程](./02-process/process-and-thread.md) | task_struct、状态机、fork/exec/exit、CFS 调度、信号、PID 1 陷阱 |
-| 内存 | [内存管理](./03-memory/memory-management.md) | 虚拟内存、页表、swap、OOM killer、伙伴系统、RSS/PSS/USS |
-| IO | [IO 模型与 epoll](./04-io/io-model-and-epoll.md) | 5 种 IO 模型、select/poll/epoll、LT/ET、Reactor、零拷贝、页面缓存 |
-| 文件系统 | [文件系统与 VFS](./05-fs/filesystem-and-vfs.md) | VFS 四对象、inode/dentry、OverlayFS、procfs/sysfs、fsync |
-| 网络 | [网络内核](./06-network/network-kernel.md) | netfilter、iptables、conntrack、TCP 栈队列、NAPI/RPS、策略路由 |
-| 安全 | [安全与权限](./07-security/security-and-permission.md) | DAC/MAC、Capability、SELinux、seccomp、AppArmor、PAM |
-| Shell | [Shell 与脚本](./08-shell/shell-and-scripting.md) | Bash 启动层级、三剑客、进程替换、变量作用域、set -euo pipefail |
+| 系统启动 | [系统启动与运行时](./01-foundation/system-boot-and-runtime.md) ✅ | BIOS/UEFI→Bootloader→kernel→init、systemd Unit、cgroup v1/v2 基础 |
+| 进程 | [进程与线程](./02-process/process-and-thread.md) ✅ | task_struct、状态机、fork/exec/exit、CFS 调度、信号、PID 1 陷阱 |
+| 内存 | [内存管理](./03-memory/memory-management.md) ✅ | 虚拟内存、页表、swap、OOM killer、伙伴系统、RSS/PSS/USS |
+| IO | [IO 模型与 epoll](./04-io/io-model-and-epoll.md) ✅ | 5 种 IO 模型、select/poll/epoll、LT/ET、Reactor、零拷贝、页面缓存 |
+| 文件系统 | [文件系统与 VFS](./05-fs/filesystem-and-vfs.md) ✅ | VFS 四对象、inode/dentry、OverlayFS、procfs/sysfs、fsync |
+| 网络 | [网络内核](./06-network/network-kernel.md) ✅ | netfilter、iptables、conntrack、TCP 栈队列、NAPI/RPS、策略路由 |
+| 安全 | [安全与权限](./07-security/security-and-permission.md) ✅ | DAC/MAC、Capability、SELinux、seccomp、AppArmor、PAM |
+| Shell | [Shell 与脚本](./08-shell/shell-and-scripting.md) ✅ | Bash 启动层级、三剑客、进程替换、变量作用域、set -euo pipefail |
 | 性能排障 | [性能与故障排查](./09-ops/performance-and-troubleshooting.md) ✅ | USE/RED、top/vmstat/iostat、perf、strace、tcpdump、eBPF、排障四步法 |
-| 面试冲刺 | [Q&A 速答](./10-interview-qa.md) | 50+ 题速答 + 连环套问思维导图 |
+| 面试冲刺 | [Q&A 速答](./10-interview-qa.md) ✅ | 50+ 题速答 + 连环套问思维导图 |
 
 > 共 **11 份**文档：入口 README（本文档）+ 上表 10 份主题/Q&A 文档。
 

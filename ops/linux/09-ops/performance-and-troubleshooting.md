@@ -124,7 +124,7 @@ flowchart LR
     BUF --> REPORT[perf report<br/>符号化 + 聚合]
 ```
 
-**采样原理**：perf 设定 PMU 计数器（如 `PERF_COUNT_HW_CPU_CYCLES`），每 N 个周期溢出触发一次中断（默认采样频率 4000Hz，即每秒最多 4000 次采样），中断时记录当前指令地址（PC）和调用栈。**`perf record -F 999 -g -p <pid>`**：`-F 999` 设采样频率 999Hz，`-g` 记录调用栈，`-p` 指定进程。**`perf report`** 把 perf.data 里的 PC 地址通过 `/proc/kallsyms`（内核符号）和 ELF 符号表（用户态）翻译成函数名，按占比排序展示热点。
+**采样原理**：perf 设定 PMU 计数器（如 `PERF_COUNT_HW_CPU_CYCLES`），每 N 个周期溢出触发一次中断，中断时记录当前指令地址（PC）和调用栈。采样频率受 `/proc/sys/kernel/perf_event_max_sample_rate`（默认上限约 4000Hz）约束，`perf record` 默认约 99Hz（刻意避开 60Hz 电源管理周期，避免采样与电源管理同步失真），常用 `-F 999` 提高采样密度。**`perf record -F 999 -g -p <pid>`**：`-F 999` 设采样频率 999Hz，`-g` 记录调用栈，`-p` 指定进程。**`perf report`** 把 perf.data 里的 PC 地址通过 `/proc/kallsyms`（内核符号）和 ELF 符号表（用户态）翻译成函数名，按占比排序展示热点。
 
 > **面试口径**：能说出"perf 基于 PMU 硬件计数器采样，不是全量记录，所以开销低（1-5%）；`perf record -g` 记调用栈，`perf report` 符号化展示；Java 进程要先用 `perf-map-agent` 生成 JIT 代码符号表，否则栈里只有 `[unknown]`"就够。关联 `java-core/jvm` 的 C2 编译与符号解析。
 
