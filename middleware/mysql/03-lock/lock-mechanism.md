@@ -22,6 +22,11 @@ MySQL 的锁从大到小分为三层：**全局锁**、**表级锁**、**行级�
 
 **表级锁 vs 行级锁**：MyISAM 只支持表锁，DML 时锁整张表；InnoDB 支持行锁，DML 时只锁命中的行（走索引），并发度远高于 MyISAM。但 InnoDB 的"行锁"在条件不走索引时会退化为表锁（全表扫描每行都加锁）。
 
+**AUTO-INC 锁的三种模式**（`innodb_autoinc_lock_mode`）：
+- `0`（traditional）：表级锁，INSERT 全程持有，保证自增值连续但并发差。
+- `1`（consecutive，5.7 默认）：批量 INSERT 表级锁，单条 INSERT 用轻量锁（获取自增值后释放）。
+- `2`（interleaved，8.0 默认）：轻量锁，不锁表，多事务交错获取自增值。配合 `binlog_format=row` 保证主从一致，并发最高但可能自增值不连续（INSERT 失败会"浪费"自增值）。
+
 ### 1.2 表级锁详解
 
 | 表锁类型 | 作用 | 持续时间 | 兼容性 |
@@ -65,6 +70,11 @@ InnoDB 的行级锁是面试核心，四种类型：
 - `SELECT ... LOCK IN SHARE MODE` → 行 S 锁
 - `SELECT ... FOR UPDATE` / `UPDATE` / `DELETE` → 行 X 锁
 - `INSERT` → 行 X 锁 + 插入意向锁
+
+**8.0 新增的锁选项**：
+- `SELECT ... FOR UPDATE NOWAIT`：锁不到立即报错（不等待）
+- `SELECT ... FOR UPDATE SKIP LOCKED`：跳过被锁的行（返回未被锁的行）
+- `SELECT ... FOR UPDATE OF t1, OF t2`：多表 JOIN 时指定锁哪个表
 
 ### 1.5 悲观锁 vs 乐观锁
 
