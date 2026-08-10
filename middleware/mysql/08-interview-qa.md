@@ -245,6 +245,8 @@
 
 **答**：传统 LRU 全表扫一次会把热点页全冲掉（缓冲池污染），全表扫数据仅用一次却把热数据挤出去。InnoDB 改进 LRU 分 **young 区（新热数据，63%，约 5/8）+ old 区（冷数据，37%，约 3/8）**：新页先插 old 区头部，若在 `innodb_old_blocks_time`（默认 1 秒）内再次被访问才提升到 young 区头部。全表扫的页插 old 区，1 秒内不再访问就留在 old 区被淘汰，不冲掉 young 区热数据。young 区满时从尾部淘汰到 old 区，old 区满时从尾部淘汰出缓冲池。这套机制保护了热点数据。
 
+**追问：Buffer Pool 大小怎么配？** 生产环境一般配物理内存的 60%-70%（`innodb_buffer_pool_size`）。如 64GB 服务器配 40-45GB 给 Buffer Pool，剩余给 OS/连接池/JVM（若同机）。8.0 支持动态调整（`SET GLOBAL innodb_buffer_pool_size=N` 在线生效，无需重启）。Buffer Pool 可分多个 instance（`innodb_buffer_pool_instances`）减少锁争用，建议每个 Instance ≥ 1GB。
+
 **关联**：→ [存储引擎底层](./05-storage/innodb-engine.md)
 
 ### Q29: Change Buffer 是什么？为什么只对二级索引有效？🔗
