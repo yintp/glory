@@ -96,6 +96,8 @@ WHERE id = 1 AND version = ? AND stock > 0;
 
 **乐观锁的 ABA 问题**：纯版本号 CAS 在某些场景会遇到 ABA（A→B→A，版本号看似未变）。解决：①用单调递增的 `version`（每次 UPDATE +1，不会回退）；②用 `CAS + 时间戳`（时间戳单调）；③业务上用"不可逆操作"（如扣减后不可恢复）。MySQL 乐观锁用 `version` 递增字段即可避免 ABA——version 只增不减。
 
+**悲观锁与乐观锁的混合使用**：生产中常混合使用——高并发入口用乐观锁（CAS 无锁快速失败），少数冲突场景降级用悲观锁（`FOR UPDATE` 串行化）。例如秒杀：Redis 原子扣减（乐观）→ DB `UPDATE WHERE stock>0`（乐观兜底）→ 极少数对账修复用 `FOR UPDATE`（悲观锁定行后修复）。
+
 ---
 
 ## 二、原理与流程
