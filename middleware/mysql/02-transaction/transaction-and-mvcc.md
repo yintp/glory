@@ -404,6 +404,8 @@ Spring `@Transactional` 的传播行为决定了业务方法如何参与 MySQL �
 
 **关键陷阱：REQUIRES_NEW 与连接池**：`REQUIRES_NEW` 新开事务意味着从连接池获取**新连接**，若连接池配置过小（如 maximum-pool-size=10），业务方法嵌套调用 REQUIRES_NEW 可能耗尽连接池。生产建议连接池大小 ≥ 嵌套深度 × 并发量。
 
+**REQUIRED 的常见误用**：把 `@Transactional` 加在 Controller 类上，导致整个请求链路（含 RPC、文件上传）都在一个事务内——长事务持锁、Undo 膨胀。正确做法是加在 **Service 方法**最小边界，事务内只做 DB 操作，RPC/文件操作拆到事务外。
+
 ### 4.2 Spring 声明式事务失效场景
 
 `@Transactional` 基于 AOP 代理，以下场景会失效：
