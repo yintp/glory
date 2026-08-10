@@ -49,6 +49,10 @@ flowchart LR
 
 **优化器选错索引的常见原因**：①统计信息陈旧（`ANALYZE TABLE` 更新）；②数据分布不均（直方图 8.0+ 可辅助）；③SQL 写法误导（`OR`/`!=`/函数运算导致索引失效）；④参数 `optimizer_search_depth` 限制搜索深度。
 
+**直方图（Histogram, 8.0+）**：当列数据分布不均（如 status 90% 是 'PAID'，10% 是 'PENDING'），优化器可能因不知道分布而选错索引。直方图记录列值的分布桶（最多 1024 桶），让优化器知道"status='PENDING' 只有 10% 数据"从而选对索引。创建：`ANALYZE TABLE orders UPDATE HISTOGRAM ON status WITH 100 BUCKETS;`。适用于：列无索引但有过滤条件、数据分布不均、优化器选错索引的场景。
+
+**`ANALYZE TABLE` 的意义**：InnoDB 持久化统计信息（`innodb_stats_persistent=ON`，8.0 默认）存储在 `mysql.innodb_table_stats` 与 `mysql.innodb_index_stats` 表中。大批量写入后统计信息可能滞后，`ANALYZE TABLE` 强制重新采样更新。8.0 默认采样 20 页（`innodb_stats_persistent_sample_pages=20`），大表可调高提高精度但耗时更长。
+
 ### 1.3 Explain 的 12 个字段
 
 `EXPLAIN` 是查看执行计划的工具，8.0 输出 12 个字段：
@@ -83,6 +87,19 @@ EXPLAIN SELECT * FROM orders WHERE user_id = 100 AND status = 'PAID' ORDER BY cr
 ```
 
 **解读**：`type=ref` 走索引等值查询，`key=idx_user` 用了 user_id 索引，`key_len=8`（bigint），`rows=120` 估算扫描 120 行，`filtered=10%` 过滤后约 12 行，`Extra=Using index condition` 用了 ICP 下推 status 条件到引擎层。
+
+**EXPLAIN ANALYZE（8.0+）**：8.0 提供 `EXPLAIN ANALYZE` 输出实际执行耗时，比 `EXPLAIN` 的估算更精确：
+
+```sql
+EXPLAIN ANALYZE SELECT * FROM orders WHERE user_id = 100 AND status = 'PAID';
+```
+
+```
+-> Index lookup on orders using idx_user (user_id=100)  (cost=25.2 rows=120)
+    -> Filter: (orders.status = 'PAID')  (cost=25.2 rows=12) (actual time=0.12..0.35 rows=8 loops=1)
+```
+
+**区别**：`EXPLAIN` 输出估算值（`rows=120`），`EXPLAIN ANALYZE` 输出实际值（`actual rows=8`）和耗时（`actual time=0.12..0.35`）。用于验证优化器估算是否准确——若估算与实际差距大，说明统计信息需更新（`ANALYZE TABLE`）。
 
 ---
 
@@ -152,6 +169,10 @@ EXPLAIN SELECT * FROM orders WHERE user_id = 100 AND status = 'PAID' ORDER BY cr
 
 **`Using temporary` 的常见场景**：`GROUP BY`、`DISTINCT`、`UNION` 需要临时表去重。若临时表超过 `tmp_table_size` 会落磁盘（`SHOW STATUS LIKE 'Created_tmp_disk_tables'` 查看）。
 
+**`Using join buffer` 的含义**：JOIN 时被驱动表无索引，退化用 BNL（Block Nested Loop），把驱动表数据放 `join_buffer` 批量匹配。出现此值说明被驱动表 JOIN 列缺索引，需补索引把 BNL 优化为 NLJ。
+
+**Extra 组合出现**：实际 EXPLAIN 中 Extra 可能有多个值同时出现，如 `Using index condition; Using where`——表示先用 ICP 下推到引擎层过滤，再在 Server 层用 WHERE 进一步过滤。读懂组合值才能精确判断查询的执行路径。
+
 ### 2.4 rows 与 filtered
 
 | 字段 | 含义 | 用途 |
@@ -183,6 +204,8 @@ sequenceDiagram
 ```
 
 **流程**：遍历驱动表 t1 每一行，用 t1 的 JOIN 列值查被驱动表 t2 的索引。若 t2 的 JOIN 列有索引，每次查 t2 是一次索引查找（B+树），效率高。
+
+**NLJ 的成本公式**：`扫描行数 = t1.rows + t1.rows × t2单次索引查找行数`。若 t1 有 100 行，t2 索引查找每次 1 行，总扫描 100 + 100 = 200 行。若 t2 无索引退化 BNL，扫描行数 = t1.rows + t2.rows（全表扫一次）。
 
 **2. Block Nested Loop（BNL）**——被驱动表无索引时：
 
@@ -227,6 +250,8 @@ sequenceDiagram
 
 **建议**：优先用 `JOIN` 替代 `IN` 子查询；若子查询结果集大，用 `EXISTS`（走外层索引）；`NOT IN` 在 8.0 仍有优化空间，大表建议改 `LEFT JOIN ... WHERE ... IS NULL`。
 
+**Semi Join 的执行方式**：8.0 Semi Join 有 4 种策略——①`FirstMatch`：对外层每行只匹配子查询一次，找到即跳过；②`LooseScan`：子查询索引去重后扫描；③`Materialization`：子查询物化为临时表，外层 JOIN；④`DuplicateWeedout`：JOIN 后去重。优化器根据成本选策略，`EXPLAIN` 的 `Extra` 会显示 `Using where; FirstMatch(t1)` 等。
+
 ### 2.7 排序优化
 
 `ORDER BY` 的两种执行路径：
@@ -249,6 +274,10 @@ SELECT * FROM orders WHERE user_id=1 ORDER BY create_time;
 **`sort_buffer_size` 调优**：控制内存排序区大小（默认 256KB）。排序数据超过此值则落临时表（磁盘排序），性能骤降。生产建议设 1-4MB，但不要太大（每个连接一个 sort_buffer，过大导致内存浪费）。
 
 **优化 `Using filesort`**：①把 `ORDER BY` 字段加入联合索引；②`SELECT` 只查需要的列（减少单路排序内存占用）；③限制结果集（`LIMIT`）减少排序数据量。
+
+**filesort 的优先队列优化**：8.0 对带 `LIMIT` 的排序用优先队列（堆排序）而非全排序——只需维护 TOP N 的堆，而非对全部数据排序。例如 `ORDER BY score DESC LIMIT 10`，只需维护 10 元素的最大堆，扫描一遍数据即可，复杂度 O(N log 10) 而非 O(N log N)。
+
+**GROUP BY 优化**：8.0 默认 `group_by_optimizer=ON`，GROUP BY 走索引有序时无需临时表（`Using index for group-by`）。若 GROUP BY 字段无索引，用临时表（`Using temporary`）——可通过加联合索引消除。
 
 ### 2.8 分页优化
 
@@ -313,6 +342,20 @@ SELECT * FROM orders WHERE status='PAID' AND id > #{last_id} ORDER BY id ASC LIM
 
 **DDL 期间 MDL 锁阻塞链**：DDL 需 MDL_WRITE，若有长事务持有 MDL_READ，DDL 排队等待；后续所有 DML 因 FIFO 排在 DDL 后面也被阻塞——全表卡死（详见 [锁机制](../03-lock/lock-mechanism.md) 2.4 节 MDL）。
 
+**DDL 操作的成本估算**：
+
+| DDL 类型 | inplace 支持 | instant 支持（8.0） | 成本 |
+|---------|-------------|-------------------|------|
+| 加索引 | ✅ | ❌ | 扫描全表构建索引树 |
+| 末尾加列 | ✅ | ✅（8.0.12+） | instant 瞬间；inplace 需修改所有行 |
+| 中间加列 | ✅ | ❌ | inplace 重建表 |
+| 删列 | ✅ | ✅（8.0.29+） | inplace 重建表 |
+| 改列类型 | ✅ | ❌ | 重建表 + 数据转换 |
+| 改默认值 | ✅ | ✅ | instant 只改元数据 |
+| 重命名列 | ✅ | ✅（8.0+） | instant 只改元数据 |
+
+**生产 DDL 检查清单**：①确认无长事务（`SELECT * FROM information_schema.innodb_trx WHERE TIME_TO_SEC(TIMEDIFF(NOW(), trx_started)) > 60`）；②设 `lock_wait_timeout=30`（MDL 等待超时 30 秒）；③低峰期执行；④大表用 gh-ost；⑤备库先执行验证。
+
 ### 2.10 关键源码路径
 
 | 模块 | 源码路径 | 职责 |
@@ -352,6 +395,8 @@ SELECT * FROM orders WHERE status='PAID' AND id > #{last_id} ORDER BY id ASC LIM
 ### Q6: 大表加索引会锁表吗？怎么办？
 
 **答**：5.6+ 支持 Online DDL（inplace 方式），加索引期间允许 DML 并发，但有短暂 MDL 锁阻塞（prepare/commit 阶段）。8.0 部分 DDL 支持 instant（瞬间完成）。大表加索引的风险：①MDL 锁阻塞链（长事务 + DDL = 全表卡死）；②构建索引期间消耗 CPU/IO；③row log 应用阶段可能慢。**生产推荐**：用 `gh-ost` 或 `pt-osc` 影子表方案——创建影子表拷贝数据，binlog/触发器同步增量，最后原子改名，不阻塞线上 DML。
+
+**追问：gh-ost 的流量控制怎么做？** gh-ost 通过 `throttle-control-replicas` 参数控制拷贝速度——监控从库延迟，超过阈值自动暂停拷贝。生产建议设 `max-load=Threads_running=50`（主库活跃线程超 50 暂停）。
 
 ### Q7: SELECT COUNT(*) 慢怎么办？
 
@@ -496,6 +541,35 @@ public List<Order> queryOrders(Long userId) {
 - Q: gh-ost 和 pt-osc 选哪个？ → gh-ost 不用触发器对主库压力小，优先选；pt-osc 成熟但触发器有性能影响。
 - Q: 加字段带默认值会触发数据修改吗？ → 8.0 instant 只改元数据不修改已有行；inplace 会扫描全表填默认值。
 - Q: 分库分表后加字段怎么保证一致？ → 灰度执行，先加列（所有分片），再启用功能（应用层发布）；或用配置中心控制灰度。
+
+**gh-ost 的完整流程**：
+
+```mermaid
+flowchart TD
+    A["创建影子表 _orders_gho<br/>（与原表相同结构）"] --> B["ALTER 影子表<br/>（加字段/加索引）"]
+    B --> C["拷贝原表数据到影子表<br/>（分批拷贝，每批 1000 行）"]
+    C --> D["同步增量：解析 binlog<br/>把拷贝期间的 DML 应用到影子表"]
+    D --> E{拷贝完成?}
+    E -->|否| C
+    E -->|是| F["原子改名：<br/>RENAME TABLE orders TO _orders_del, _orders_gho TO orders"]
+    F --> G["删除旧表 _orders_del"]
+    
+    H["流量控制：<br/>监控从库延迟/主库 Threads_running<br/>超阈值自动暂停拷贝"] -.-> C
+```
+
+**gh-ost 的核心优势**：①不使用触发器（pt-osc 用触发器，高并发下有性能影响），改用 binlog 解析同步增量；②可暂停/恢复（`throttle` 控制拷贝速度）；③原子改名（`RENAME TABLE` 是原子操作，切换瞬间完成）；④可交互式调整（运行中可动态修改 `throttle` 参数）。
+
+**gh-ost 与 pt-osc 对比**：
+
+| 维度 | gh-ost | pt-osc |
+|------|--------|--------|
+| 增量同步 | binlog 解析 | 触发器 |
+| 主库压力 | 小（无触发器） | 大（触发器开销） |
+| 暂停/恢复 | 支持 | 不支持 |
+| 外键 | 不支持 | 有限支持 |
+| 成熟度 | GitHub 生产 | Percona 成熟 |
+
+**生产建议**：优先用 gh-ost（主库压力小、可暂停），pt-osc 作为备选（有外键时）。
 
 ---
 
