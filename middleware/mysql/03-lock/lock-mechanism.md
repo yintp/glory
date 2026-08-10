@@ -264,6 +264,8 @@ sequenceDiagram
 
 **插入意向锁的意义**：若无插入意向锁，多个事务并发 INSERT 同一 Gap 时只能串行（一个插入完释放 Gap 再让下一个）。插入意向锁让并发插入同一 Gap 的不同位置可以并行——提高了写入并发度。
 
+**Gap Lock 的"被抑制"机制**：Gap Lock 在 RC 隔离级别下不生效（除外键约束），在 RR 下生效。但即使 RR 下，若事务隔离级别被显式设置 `SET SESSION transaction_isolation='READ-COMMITTED'`，该事务内的 Gap Lock 也会被抑制——这是 RR 切 RC 减少锁范围的根本机制。另外 `innodb_locks_unsafe_for_binlog`（已废弃，被 `binlog_format=row` 替代）也能禁用 Gap Lock，但会导致 statement 格式主从不一致。
+
 ### 2.6 死锁
 
 **死锁四条件**：①互斥（X 锁不可共享）、②持有并等待（持有 A 等 B）、③不可剥夺（锁不能被抢）、④循环等待（A 等 B、B 等 A）。
