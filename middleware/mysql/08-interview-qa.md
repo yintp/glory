@@ -295,6 +295,8 @@
 
 **答**：两阶段提交（2PC）保证 redo log 与 binlog 一致：①**Prepare 阶段**——InnoDB 写 redo log 并标 prepare 状态；②**Commit 阶段**——写 binlog，再写 redo log 标 commit 状态。crash recovery 时：若 redo 有 commit 标记，提交事务；若 redo 是 prepare 但 binlog 完整（有完整 XID），提交（说明 binlog 已写，从库可能已应用，必须提交保持一致）；若 redo 是 prepare 且 binlog 不完整，回滚（binlog 没写，从库不会有，回滚无影响）。不用 2PC 则可能出现 redo 提交但 binlog 没写（从库丢数据）或 binlog 写了但 redo 没提交（从库多数据），主从不一致。
 
+**追问：组提交（Group Commit）和两阶段提交什么关系？** 组提交是两阶段提交的性能优化——多个事务的 prepare → 写 binlog → commit 三阶段可流水线化：Flush Stage 多事务并行写 Redo+Binlog 到 OS Cache；Sync Stage 攒批 fsync；Commit Stage 并行写 Redo commit。把多个事务的 fsync 合并为一次，高并发下大幅提升吞吐。`binlog_group_commit_sync_delay`（默认 0）控制攒批等待时间。
+
 **关联**：→ [日志体系](./06-log/log-system.md)
 
 ### Q35: crash recovery 怎么保证数据不丢？🔗
