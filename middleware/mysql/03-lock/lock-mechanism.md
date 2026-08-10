@@ -76,6 +76,8 @@ InnoDB 的行级锁是面试核心，四种类型：
 - `SELECT ... FOR UPDATE SKIP LOCKED`：跳过被锁的行（返回未被锁的行）
 - `SELECT ... FOR UPDATE OF t1, OF t2`：多表 JOIN 时指定锁哪个表
 
+**意向锁的隐式加锁**：InnoDB 在执行 `SELECT ... FOR UPDATE` 时，会**自动**在表上加 IX 锁（意向排他），再在行上加 X 锁。同样，`LOCK IN SHARE MODE` 自动加 IS 锁再在行上加 S 锁。开发者无需手动加意向锁——它是 InnoDB 内部优化表锁与行锁冲突检测的机制。
+
 ### 1.5 悲观锁 vs 乐观锁
 
 | 维度 | 悲观锁 | 乐观锁 |
