@@ -549,6 +549,7 @@ try (PreparedStatement ps = conn.prepareStatement("INSERT INTO orders(id,amount)
 - Q: 加索引会影响写入性能吗？ → 会，每个索引一棵 B+树，INSERT/UPDATE/DELETE 维护所有索引树。需权衡读写比例。
 - Q: 慢查询日志占空间怎么办？ → `log_slow_rate_limit` 采样记录；`log_rotate` 定期轮转；pt-query-digest 汇总后清理。
 - Q: 线上加索引怎么不阻塞业务？ → `gh-ost` 影子表方案，不阻塞 DML。
+- Q: 怎么判断该加什么索引？ → ①看 WHERE 条件的高频列；②看 ORDER BY/GROUP BY 字段；③建联合索引把 WHERE + ORDER BY 字段组合；④用 `sys.schema_unused_indexes` 清理无用索引。
 
 ### 案例 2：大表加字段怎么办
 
