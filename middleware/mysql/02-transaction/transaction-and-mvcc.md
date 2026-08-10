@@ -498,7 +498,6 @@ public void createAndQuery() {
 @Configuration
 public class DataSourceConfig {
     @Bean
-    @Primary
     @ConfigurationProperties(prefix = "spring.datasource.hikari.master")
     public DataSource masterDataSource() {
         return DataSourceBuilder.create().type(HikariDataSource.class).build();
@@ -511,6 +510,7 @@ public class DataSourceConfig {
     }
     
     @Bean
+    @Primary  // 路由数据源作为主数据源注入给 MyBatis/JPA
     public AbstractRoutingDataSource routingDataSource() {
         Map<Object, Object> targetDataSources = new HashMap<>();
         targetDataSources.put("master", masterDataSource());
