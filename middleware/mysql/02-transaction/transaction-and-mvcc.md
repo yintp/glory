@@ -268,6 +268,8 @@ Undo Log 不是单一文件，而是存放在 **Undo Tablespace**（独立表空
 | Undo Segment | 撤销段，每回滚段 1024 个 | 分配给事务 |
 | Undo Log | 单个事务的 undo 记录链 | insert undo / update undo 两类 |
 
+**8.0 Undo 表空间的改进**：8.0 之前 undo log 存在系统表空间（ibdata1）或独立 undo 表空间，无法动态收缩；8.0.14+ 支持自动 truncate undo 表空间（`innodb_undo_log_truncate=ON`），当 undo 表空间超过 `innodb_max_undo_log_size`（默认 1GB）时自动 truncate，解决了长事务后 undo 空间无法回收的痛点。
+
 **两类 Undo Log**：
 
 | 类型 | 何时生成 | 何时清理 | 用途 |
