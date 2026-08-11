@@ -23,7 +23,7 @@ Redis 对外暴露的**数据类型（type）**只有 5 种基础类型 + 3 种�
 
 **为什么不让 type 直接对应一种结构？** 因为 Redis 是**内存数据库**，内存是第一稀缺资源。如果 List 永远用双向链表，那么一个只有 3 个元素的 List 也要为每个元素分配一个 listNode（前后指针 + 值指针），仅指针开销就 48 字节，比数据本身还大。Redis 的做法是：**按数据规模动态切换编码**，小数据用紧凑结构（listpack 一段连续内存无指针开销），数据增长到阈值后再切换为高效结构（hashtable O(1) 查找、skiplist O(log n) 范围查询），切换过程对上层透明。
 
-**编码转换的触发时机**：①元素数量超过 `*-max-listpack-entries` / `set-max-intset-entries` 阈值；②任一元素长度超过 `*-max-listpack-value` 阈值；③发生写入操作时检查（只读操作不触发转换）。阈值可通过 `CONFIG SET` 动态调整，但生产中一般不调——默认值是 Redis 团队基于大量场景调优的。
+**编码转换的触发时机**：①元素数量超过 `*-max-listpack-entries`（Hash/ZSet）/ `set-max-intset-entries`（Set）阈值；②任一元素长度超过 `*-max-listpack-value`（Hash/ZSet）阈值；③发生写入操作时检查（只读操作不触发转换）。阈值可通过 `CONFIG SET` 动态调整，但生产中一般不调——默认值是 Redis 团队基于大量场景调优的。**注意 List 是例外**：它只有一个 `list-max-listpack-size` 参数，正数限元素个数、负数限单节点字节数（默认 -2 即 8KB），没有独立的 entries/value 两个参数（这两个是 Hash/ZSet 的参数）。
 
 ### 1.2 为什么 Redis 要做编码转换
 
@@ -217,11 +217,11 @@ listpack 是 Redis 7.0 引入的紧凑连续内存结构，**替代了 ziplist**
 
 **listpack 的查找复杂度**：O(n) 顺序遍历，但因为元素少（默认 ≤ 128）且内存连续 CPU 缓存友好，实际性能优于 hashtable。元素一多就触发编码转换到 hashtable/quicklist，不会让 listpack 的 O(n) 拖累延迟。
 
-> **源码路径**：`src/listpack.c` 的 `lpNew`（创建）、`lpAppend`（追加）、`lpFind`（查找）、`lpInsert`（插入）；ziplist 已在 7.0 移除从编码选项中移除，仅保留兼容代码。
+> **源码路径**：`src/listpack.c` 的 `lpNew`（创建）、`lpAppend`（追加）、`lpFind`（查找）、`lpInsert`（插入）；ziplist 已在 7.0 从编码选项中移除，仅保留兼容代码。
 
 ### 2.4 quicklist：双向链表 + 节点内 listpack
 
-quicklist 是 List 的"大规模"编码——当 List 元素超过 `list-max-listpack-entries=128` 或单个元素超过 `list-max-listpack-size=64` 字节时，从 listpack 转为 quicklist。quicklist 是**双向链表，每个节点内部是一个 listpack**，结合了链表的灵活性与 listpack 的紧凑性。
+quicklist 是 List 的"大规模"编码——当 List 规模超过 `list-max-listpack-size` 阈值时（正数=元素个数上限，负数=单节点字节数上限，默认 -2 即 8KB），从 listpack 转为 quicklist。quicklist 是**双向链表，每个节点内部是一个 listpack**，结合了链表的灵活性与 listpack 的紧凑性。
 
 **quicklist 结构**（`src/t_list.c` / `src/quicklist.c`）：
 
@@ -360,12 +360,14 @@ Redis 7.x 的编码转换阈值（均可通过 `CONFIG SET` 动态调整）：
 
 | 数据类型 | 小规模编码 | 大规模编码 | 数量阈值 | 单元素长度阈值 | 配置项 |
 |---------|-----------|-----------|---------|---------------|--------|
-| List | listpack | quicklist | 128 | 64 字节 | `list-max-listpack-entries` / `list-max-listpack-size` |
+| List | listpack | quicklist | `list-max-listpack-size` 正数=个数上限 | 无（size 负数=单节点字节上限） | `list-max-listpack-size`（默认 -2=8KB） |
 | Hash | listpack | hashtable | 128 | 64 字节 | `hash-max-listpack-entries` / `hash-max-listpack-value` |
 | ZSet | listpack | skiplist + dict | 128 | 64 字节 | `zset-max-listpack-entries` / `zset-max-listpack-value` |
 | Set | intset（纯整数）/ listpack（混合小集合） | hashtable | 512（intset） | - | `set-max-intset-entries` / `set-max-listpack-entries` / `set-max-listpack-value` |
 
-**阈值的意义**：这些值是 Redis 团队基于"O(n) 顺序遍历 vs O(1)/O(log n) 哈希/跳表查找"的临界点调优的。128/64 是经验值——再大 listpack 的 O(n) 查找就开始拖累 P99 延迟，必须转高效结构。生产中一般不调，除非业务场景特殊（如全是大 value，可调小 `*-value` 阈值提前转 hashtable）。
+> **List 参数与 Hash/ZSet 不同**：Hash/ZSet 有 `*-max-listpack-entries`（元素个数）和 `*-max-listpack-value`（单元素字节数）两个独立参数；List 只有一个 `list-max-listpack-size`——正数表示 listpack 元素个数上限，负数表示单节点字节数上限（-1=4KB / -2=8KB 默认 / -3=16KB / -4=32KB / -5=64KB）。因此 List 没有"单元素长度阈值"这一列，超限由单节点总字节数间接控制。参考 `CONFIG GET list-max-listpack-size`。
+
+**阈值的意义**：这些值是 Redis 团队基于"O(n) 顺序遍历 vs O(1)/O(log n) 哈希/跳表查找"的临界点调优的。Hash/ZSet 的 128/64 是经验值——再大 listpack 的 O(n) 查找就开始拖累 P99 延迟，必须转高效结构。List 的默认 -2（8KB）同理，是单节点 listpack 遍历成本与 quicklist 链表跳转成本的平衡点。生产中一般不调，除非业务场景特殊（如全是大 value，可调小 `*-value` 阈值提前转 hashtable）。
 
 ### 2.9 ZSet 为什么用 skiplist + dict 双结构
 
@@ -464,8 +466,8 @@ ziplist 的每个 entry 前有 `prev_entry_length` 字段记录前一 entry 长�
 | Set 存在线用户 ID（纯整数） | < 512 | intset | 紧凑连续内存 |
 | Set 存标签（字符串） | 任意 | listpack/hashtable | 小用 listpack，大用 hashtable |
 | ZSet 存排行榜 | > 128 或 score 精度要求高 | skiplist + dict | 双结构兼顾范围与精确 |
-| List 存消息队列 | < 128 条且短 | listpack | 连续内存 |
-| List 存大消息流 | > 128 条 | quicklist | 链表 + 节点内 listpack |
+| List 存消息队列 | 元素少且短（单节点 < 8KB） | listpack | 连续内存 |
+| List 存大消息流 | 元素多或单节点超 8KB | quicklist | 链表 + 节点内 listpack |
 
 **调优实践**：①若业务 Hash 的 value 普遍 > 64B（如存 JSON），可调小 `hash-max-listpack-value` 到 32 提前转 hashtable，避免 listpack 频繁扩容；②若 Set 全是大整数（如 64 位 user_id），调大 `set-max-intset-entries` 到 2048 让更多场景用 intset 省内存；③ZSet 的 `zset-max-listpack-value` 同理。调优后用 `OBJECT ENCODING key` 验证实际编码。
 
