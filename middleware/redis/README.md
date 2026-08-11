@@ -225,13 +225,7 @@ mindmap
 | 06 缓存实战 / 序列化 | `framework/jackson` | RedisTemplate 序列化器与 Jackson 自定义序列化 |
 | 06 缓存实战 / 参数校验 | `framework/valid` | 缓存空值与参数校验互补防穿透 |
 
-**延伸阅读**：
-
-- `java-core/jvm` —— 对照理解 Redis 引用计数内存回收 vs JVM GC、单线程模型 vs JVM 多线程
-- `framework/spring-framework` —— Spring Cache 抽象、Redisson 分布式锁集成、多数据源路由
-- `framework/jackson` —— RedisTemplate 序列化器与 Jackson 自定义序列化的对接
-
-> 建议在阅读内存管理、事件模型与缓存实战文档时，对照 `java-core`/`framework` 模块的源码实例，加深「面试八股 → 工程实战」的双向映射。
+> 建议在阅读内存管理、事件模型与缓存实战文档时，对照 `java-core`/`framework` 模块源码，加深「面试八股 → 工程实战」双向映射（延伸阅读：`java-core/jvm` 对照引用计数/单线程模型，`framework/spring-framework` 对照 Cache/Redisson，`framework/jackson` 对照序列化器）。
 
 ---
 
