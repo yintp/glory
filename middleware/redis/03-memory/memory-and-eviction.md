@@ -213,7 +213,7 @@ void evictionPoolPopulate(redisDb *db, evictionPoolEntry *pool) {
 - `maxmemory-samples 5`（默认）：近似 LRU，命中率接近真实 LRU 的 80%。
 - `maxmemory-samples 10`：更接近真实 LRU，但采样开销翻倍。
 
-Redis 5.0 引入了**淘汰池**（eviction pool）优化：每次采样 N 个 Key 后，与上次保留的淘汰池（默认 16 个）合并，取最久未用的淘汰。这样即使 `maxmemory-samples=5`，实际比较的范围是 5 + 16 = 21 个，精度大幅提升，接近 `maxmemory-samples=21` 的效果。
+Redis 3.0 引入了**淘汰池**（eviction pool）优化：每次采样 N 个 Key 后，与上次保留的淘汰池（默认 16 个）合并，取最久未用的淘汰。这样即使 `maxmemory-samples=5`，实际比较的范围是 5 + 16 = 21 个，精度大幅提升，接近 `maxmemory-samples=21` 的效果。
 
 **LRU 采样淘汰流程**：
 
@@ -322,7 +322,7 @@ flowchart TD
 **LFU 自增参数调优**：
 - `lfu-log-factor 10`（默认）：counter 到 255 需约 1000 万次访问。
 - `lfu-log-factor 1`：counter 增长更快，到 255 需约 10 万次访问——区分度降低，但反应更快。
-- `lfu-log-factor 100`：counter 增长极慢，到 255 需约 1 亿次访问——区分度极高，但冷数据 counter 几乎不涨，容易区分冷热但可能过度淘汰。
+- `lfu-log-factor 100`：counter 增长极慢，到 255 需约 6300 万次访问——区分度极高，但冷数据 counter 几乎不涨，容易区分冷热但可能过度淘汰。
 
 **为什么 4.0 后推荐 LFU**：LRU 的典型失败场景——"全表扫描"：某次运维执行 `SCAN` 或 `KEYS`（即使是 `SCAN`）会"访问"到大量冷数据，这些冷数据的 `lru` 被更新为当前时间，LRU 会误以为它们是热点而保留，反而淘汰了真正的热点（因为热点的 `lru` 不如刚扫描的冷数据新）。LFU 的 counter 是对数增长，扫描一次只让 counter 从 0 涨到 1，真正的热点 counter 是 100+，扫描污染对 LFU 几乎无影响。所以 4.0 后纯缓存场景推荐 `allkeys-lfu`。
 
@@ -435,7 +435,7 @@ flowchart TD
 
 ### Q3: LRU 怎么实现的？为什么不用双向链表？
 
-**答**：Redis 用**近似 LRU**——redisObject 的 24 位 `lru` 字段记录最近访问时间戳，淘汰时采样 `maxmemory-samples`（默认 5）个 Key 取最久未访问的淘汰。不用双向链表 LRU 是因为：①内存开销大——每 Key 两个额外指针，千万级 Key 消耗 160MB+；②维护成本高——每次访问移动节点到头部，单线程下常数大；③与 dict 双重管理复杂度高。5.0 引入淘汰池（eviction pool）优化，采样 5 个与池中 16 个合并比较，精度接近 `maxmemory-samples=21`。
+**答**：Redis 用**近似 LRU**——redisObject 的 24 位 `lru` 字段记录最近访问时间戳，淘汰时采样 `maxmemory-samples`（默认 5）个 Key 取最久未访问的淘汰。不用双向链表 LRU 是因为：①内存开销大——每 Key 两个额外指针，千万级 Key 消耗 160MB+；②维护成本高——每次访问移动节点到头部，单线程下常数大；③与 dict 双重管理复杂度高。3.0 引入淘汰池（eviction pool）优化，采样 5 个与池中 16 个合并比较，精度接近 `maxmemory-samples=21`。
 
 **关联**：→ [内存管理与淘汰策略](./03-memory/memory-and-eviction.md)
 
@@ -587,7 +587,7 @@ for key in keys:
     redis_client.expire(key, ttl)
 ```
 
-2. **峰值限流**：如果已有同时过期，`CONFIG SET active-expire-effort 20`（7.x，提高定期删除力度，但增加 CPU 占用）。
+2. **峰值限流**：如果已有同时过期，`CONFIG SET active-expire-effort 10`（7.x，取值 1-10，提高定期删除力度，但增加 CPU 占用，仅临时应急）。
 
 3. **监控告警**：监控 `expired_keys`（`INFO stats`）的瞬时增长率，突增时预警。
 
