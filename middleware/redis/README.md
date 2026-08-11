@@ -166,7 +166,7 @@ mindmap
 | 分层 | 文档 | 核心考点 |
 |------|------|---------|
 | 数据结构与对象 | [数据结构与对象编码](./01-data-structure/data-structure-and-encoding.md) ✅ | SDS/dict 渐进式 rehash/quicklist+listpack/skiplist 跳表/intset/对象 type+encoding/编码转换 |
-| 持久化机制 | [持久化机制](./02-persistence/persistence-mechanism.md) ⬜ | RDB fork+COW/流式 RDB/AOF 重写/多级缓冲/混合持久化/appendfsync 策略/大页影响 |
+| 持久化机制 | [持久化机制](./02-persistence/persistence-mechanism.md) ✅ | RDB fork+COW/流式 RDB/AOF 重写/多级缓冲/混合持久化/appendfsync 策略/大页影响 |
 | 内存管理与淘汰 | [内存管理与淘汰策略](./03-memory/memory-and-eviction.md) ⬜ | jemalloc 碎片/惰性+定期删除/8 种淘汰策略/LRU 近似/LFU 衰减/activedefrag |
 | 事件与并发模型 | [事件与并发模型](./04-event/event-and-concurrency.md) ⬜ | 单线程/Reactor epoll/IO 多线程/serverCron/Pipeline/MULTI 事务/Lua+Function |
 | 复制与集群 | [复制与集群](./05-replication/replication-and-cluster.md) ⬜ | 全量+增量同步/psync2/Sentinel Raft/16384 槽位/Gossip/MOVED·ASK/槽位迁移 |
