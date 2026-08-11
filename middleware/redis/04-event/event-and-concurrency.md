@@ -185,7 +185,7 @@ flowchart TD
 **配置**：
 ```
 io-threads 4          # 启用 4 个 IO 线程（含主线程，实际 3 个辅助线程）
-io-threads-do-reads yes  # 7.x，读也并行（默认只并行写）
+io-threads-do-reads yes  # 6.0 引入，读也并行（默认只并行写）
 ```
 
 **原理**：主线程把就绪的 fd 分发给 IO 线程，IO 线程并行执行 `readQueryFromClient`（读 socket + 解析 RESP 命令）或 `writeToClient`（发送响应）。命令执行（`processCommand`）仍主线程串行。
@@ -236,7 +236,7 @@ sequenceDiagram
 
 `serverCron` 是 Redis 的"心跳"——定期执行后台任务。
 
-**触发频率**：`hz` 参数控制，默认 10（每秒 10 次，即每 100ms）。`dynamic-hz yes`（7.0+）自适应——客户端多时提高频率，减少响应延迟。
+**触发频率**：`hz` 参数控制，默认 10（每秒 10 次，即每 100ms）。`dynamic-hz yes`（6.0+）自适应——客户端多时提高频率，减少响应延迟。
 
 **核心职责**：
 
@@ -257,7 +257,7 @@ sequenceDiagram
 - `hz 10`（默认）：每 100ms 执行一次，适合多数场景。
 - `hz 100`：每 10ms 执行一次，过期 Key 清理更及时，但 CPU 占用增加。
 - `hz 1`：每 1s 执行一次，CPU 占用最低，但过期 Key 清理慢、集群心跳慢。
-- `dynamic-hz yes`（7.0+）：根据客户端数量自适应，客户端多时提高频率。
+- `dynamic-hz yes`（6.0+）：根据客户端数量自适应，客户端多时提高频率。
 
 **`serverCron` 的执行时间预算**：每次执行不应超过 1ms（`hz=10` 时）。如果过期 Key 多或淘汰频繁，单次执行可能超时，导致下次 `epoll_wait` 延迟——表现为客户端延迟抖动。监控 `latency_latest`（`INFO latency`）可发现 `serverCron` 延迟。
 
