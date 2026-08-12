@@ -185,7 +185,7 @@ mindmap
 | 聚合 | [聚合与 Pipeline](./06-aggregation/aggregation-and-pipeline.md) ✅ | Bucket/Metric/Pipeline/Cardinality hyperloglog++/Percentile t-digest/聚合内存调优/ES\|QL 8.x |
 | 分片路由与 Reindex | [分片路由与 Reindex](./07-shard-routing/shard-routing-and-reindex.md) ✅ | routing 路由公式/routing key 选型/CCR 跨集群复制/reindex·Update By Query/分片数规划/Hot-Warm-Cold |
 | 高可用与调优 | [高可用与调优](./08-ha-tuning/ha-and-tuning.md) ✅ | 副本故障恢复/分片再平衡/cat API·_cluster/health/JVM heap·circuit breaker/file cache 8.x/版本升级 7.x→8.x |
-| 面试冲刺 | [Q&A 速答](./08-interview-qa.md) ⬜ | 40+ 题速答 + 连环套问思维导图 |
+| 面试冲刺 | [Q&A 速答](./08-interview-qa.md) ✅ | 40+ 题速答 + 连环套问思维导图 |
 
 > 共 **10 份**文档：入口 README（本文档）+ 上表 8 份主题文档 + 1 份 Q&A 文档。
 
