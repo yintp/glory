@@ -201,7 +201,7 @@ mindmap
 | 存储与刷盘 | [存储与刷盘机制](./02-storage/storage-and-flush.md) ✅ | CommitLog 统一存储/ConsumeQueue 索引/IndexFile/mmap 零拷贝/同步异步刷盘 |
 | 消息模型 | [消息模型与发送消费](./03-message/message-model.md) ✅ | 同步/异步/单向发送/Push·Pull·Pop 消费/集群·广播/Rebalance 策略/消费位点 |
 | 高可用与副本 | [高可用与副本同步](./04-ha/ha-and-replication.md) ✅ | Master/Slave 同步异步复制/Dledger Raft/Controller 模式/Failover/消息可靠性保障 |
-| 高级特性 | [高级特性](./05-feature/advanced-feature.md) ⬜ | 事务消息半消息+回查/顺序消息/延迟消息 18 级+任意延迟/重试死信/Tag·SQL92 过滤/消息轨迹 |
+| 高级特性 | [高级特性](./05-feature/advanced-feature.md) ✅ | 事务消息半消息+回查/顺序消息/延迟消息 18 级+任意延迟/重试死信/Tag·SQL92 过滤/消息轨迹 |
 | 实战与最佳实践 | [实战与最佳实践](./06-practice/practice-and-best-practice.md) ⬜ | 消息堆积/丢失/重复 三大顽疾/分布式事务方案/幂等设计/容量规划/RocketMQ vs Kafka 选型 |
 | 运维与排障 | [运维与排障](./07-ops/ops-and-troubleshooting.md) ⬜ | mqadmin 命令/监控指标/常见故障/扩缩容/版本升级/JVM 调优 |
 | 面试冲刺 | [Q&A 速答](./08-interview-qa.md) ⬜ | 40+ 题速答 + 连环套问思维导图 |
