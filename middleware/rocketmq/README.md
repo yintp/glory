@@ -197,7 +197,7 @@ mindmap
 
 | 分层 | 文档 | 核心考点 |
 |------|------|---------|
-| 架构与部署 | [架构与部署拓扑](./01-architecture/architecture-and-topology.md) ⬜ | NameServer 无状态/Broker 角色演进/Topic×Queue 模型/Netty Reactor 线程模型 |
+| 架构与部署 | [架构与部署拓扑](./01-architecture/architecture-and-topology.md) ✅ | NameServer 无状态/Broker 角色演进/Topic×Queue 模型/Netty Reactor 线程模型 |
 | 存储与刷盘 | [存储与刷盘机制](./02-storage/storage-and-flush.md) ⬜ | CommitLog 统一存储/ConsumeQueue 索引/IndexFile/mmap 零拷贝/同步异步刷盘 |
 | 消息模型 | [消息模型与发送消费](./03-message/message-model.md) ⬜ | 同步/异步/单向发送/Push·Pull·Pop 消费/集群·广播/Rebalance 策略/消费位点 |
 | 高可用与副本 | [高可用与副本同步](./04-ha/ha-and-replication.md) ⬜ | Master/Slave 同步异步复制/Dledger Raft/Controller 模式/Failover/消息可靠性保障 |
