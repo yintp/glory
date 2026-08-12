@@ -178,7 +178,7 @@ mindmap
 | 分层 | 文档 | 核心考点 |
 |------|------|---------|
 | 架构与部署 | [架构与部署拓扑](./01-architecture/architecture-and-topology.md) ✅ | 节点角色/Master 选举 Raft-like/Zen2/Index-Shard-Replica/Netty 线程模型 |
-| 索引与映射 | [索引与映射](./02-index-mapping/index-and-mapping.md) ⬜ | Index Settings/Mapping 字段类型/Dynamic Mapping/Dynamic Template/Runtime Field/别名模板 ILM |
+| 索引与映射 | [索引与映射](./02-index-mapping/index-and-mapping.md) ✅ | Index Settings/Mapping 字段类型/Dynamic Mapping/Dynamic Template/Runtime Field/别名模板 ILM |
 | 倒排索引与分词 | [倒排索引与分词](./03-inverted-index/inverted-index-and-analysis.md) ⬜ | FST 倒排结构/doc_values 列存/Roaring Bitmap/Analyzer 分词链/Normalizer/索引与分词选型 |
 | 读写流程与 Translog | [读写流程与 Translog](./04-read-write-translog/read-write-and-translog.md) ⬜ | 写流程 primary→replica/translog 刷盘/refresh 1s 可见/flush/版本乐观并发/bulk 批量 |
 | 查询 DSL 与打分 | [查询 DSL 与打分](./05-query-dsl-scoring/query-dsl-and-scoring.md) ⬜ | Query DSL/Bool must·should·filter·must_not/Function Score/BM25 打分可调参数/Rescoring/search_after·PIT |
